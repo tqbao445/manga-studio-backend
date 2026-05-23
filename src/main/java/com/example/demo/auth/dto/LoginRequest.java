@@ -1,16 +1,9 @@
-package com.example.demo.dto;
+package com.example.demo.auth.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-/**
- * ── LoginRequest DTO ──
- * Dùng cho request POST /api/auth/login.
- *
- * Chỉ gồm email + password — đơn giản nhất có thể.
- * Validation: cả 2 đều required, email phải đúng định dạng.
- */
 @Data
 public class LoginRequest {
 
