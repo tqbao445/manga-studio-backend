@@ -59,6 +59,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>1.5.5.Final</version>
+        </dependency>
+
+        <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
             <version>${jjwt.version}</version>
@@ -113,6 +119,11 @@
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
                             <version>1.18.38</version>
+                        </path>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>1.5.5.Final</version>
                         </path>
                     </annotationProcessorPaths>
                     <compilerArgs>

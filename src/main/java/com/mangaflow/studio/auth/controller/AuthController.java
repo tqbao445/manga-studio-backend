@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final UserMapper userMapper;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
@@ -31,7 +32,7 @@ public class AuthController {
 
     @GetMapping("/me")
     public ResponseEntity<UserDTO> me(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        UserDTO userDTO = UserDTO.fromEntity(userDetails.getUser());
+        UserDTO userDTO = userMapper.toDTO(userDetails.getUser());
         return ResponseEntity.ok(userDTO);
     }
 

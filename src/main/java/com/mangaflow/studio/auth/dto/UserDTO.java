@@ -1,6 +1,5 @@
 package com.mangaflow.studio.auth.dto;
 
-import com.mangaflow.studio.auth.model.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,16 +16,4 @@ public class UserDTO {
     private String role;
     private String avatarUrl;
     private String bio;
-
-    public static UserDTO fromEntity(User user) {
-        return UserDTO.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .username(user.getUsername())
-                .displayName(user.getDisplayName())
-                .role(user.getRole().name())
-                .avatarUrl(user.getAvatarUrl())
-                .bio(user.getBio())
-                .build();
-    }
 }

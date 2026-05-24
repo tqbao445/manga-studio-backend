@@ -18,6 +18,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final UserMapper userMapper;
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -49,7 +50,7 @@ public class AuthService {
 
         return AuthResponse.builder()
                 .accessToken(token)
-                .user(UserDTO.fromEntity(savedUser))
+                .user(userMapper.toDTO(savedUser))
                 .build();
     }
 
@@ -69,7 +70,7 @@ public class AuthService {
 
         return AuthResponse.builder()
                 .accessToken(token)
-                .user(UserDTO.fromEntity(user))
+                .user(userMapper.toDTO(user))
                 .build();
     }
 
@@ -83,6 +84,6 @@ public class AuthService {
         if (request.getBio() != null) {
             user.setBio(request.getBio());
         }
-        return UserDTO.fromEntity(userRepository.save(user));
+        return userMapper.toDTO(userRepository.save(user));
     }
 }
