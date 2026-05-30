@@ -1,13 +1,15 @@
 package com.mangaflow.studio.data;
 
-import com.mangaflow.studio.auth.model.Role;
-import com.mangaflow.studio.auth.model.User;
-import com.mangaflow.studio.auth.repository.UserRepository;
-import com.mangaflow.studio.series.enums.Genre;
-import com.mangaflow.studio.series.enums.SeriesStatus;
-import com.mangaflow.studio.series.enums.TargetDemographic;
-import com.mangaflow.studio.series.model.Series;
-import com.mangaflow.studio.series.repository.SeriesRepository;
+import com.mangaflow.studio.model.auth.Role;
+import com.mangaflow.studio.model.auth.User;
+import com.mangaflow.studio.model.page.Page;
+import com.mangaflow.studio.model.series.Genre;
+import com.mangaflow.studio.model.series.Series;
+import com.mangaflow.studio.model.series.SeriesStatus;
+import com.mangaflow.studio.model.series.TargetDemographic;
+import com.mangaflow.studio.repository.auth.UserRepository;
+import com.mangaflow.studio.repository.page.PageRepository;
+import com.mangaflow.studio.repository.series.SeriesRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +24,7 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final SeriesRepository seriesRepository;
+    private final PageRepository pageRepository;
 
     @Override
     public void run(String... args) {
@@ -141,6 +144,55 @@ public class DataSeeder implements CommandLineRunner {
             System.out.println("✅ Seeded " + seriesList.size() + " series");
         } else {
             System.out.println("⏭️ Series already exist, skipping");
+        }
+
+        // ─── Pages (cần series có sẵn) ───
+        if (pageRepository.count() == 0) {
+            // Phantom Thief K (ichikawa) — chapter 1: 3 pages
+            List<Page> pages = List.of(
+                    Page.builder()
+                            .chapterId(1L).pageNumber(1)
+                            .originalImageUrl("https://placehold.co/1200x1800?text=Ch1+P1")
+                            .webImageUrl("https://placehold.co/800x1200?text=Ch1+P1")
+                            .thumbnailUrl("https://placehold.co/200x300?text=P1")
+                            .publicId("seed/ch1/p1").width(1200).height(1800)
+                            .build(),
+                    Page.builder()
+                            .chapterId(1L).pageNumber(2)
+                            .originalImageUrl("https://placehold.co/1200x1800?text=Ch1+P2")
+                            .webImageUrl("https://placehold.co/800x1200?text=Ch1+P2")
+                            .thumbnailUrl("https://placehold.co/200x300?text=P2")
+                            .publicId("seed/ch1/p2").width(1200).height(1800)
+                            .build(),
+                    Page.builder()
+                            .chapterId(1L).pageNumber(3)
+                            .originalImageUrl("https://placehold.co/1200x1800?text=Ch1+P3")
+                            .webImageUrl("https://placehold.co/800x1200?text=Ch1+P3")
+                            .thumbnailUrl("https://placehold.co/200x300?text=P3")
+                            .publicId("seed/ch1/p3").width(1200).height(1800)
+                            .build(),
+                    // Starward Journey (ito) — chapter 1: 2 pages
+                    Page.builder()
+                            .chapterId(2L).pageNumber(1)
+                            .originalImageUrl("https://placehold.co/1200x1800?text=Star+P1")
+                            .webImageUrl("https://placehold.co/800x1200?text=Star+P1")
+                            .thumbnailUrl("https://placehold.co/200x300?text=Star+P1")
+                            .publicId("seed/ch2/p1").width(1200).height(1800)
+                            .build(),
+                    Page.builder()
+                            .chapterId(2L).pageNumber(2)
+                            .originalImageUrl("https://placehold.co/1200x1800?text=Star+P2")
+                            .webImageUrl("https://placehold.co/800x1200?text=Star+P2")
+                            .thumbnailUrl("https://placehold.co/200x300?text=Star+P2")
+                            .publicId("seed/ch2/p2").width(1200).height(1800)
+                            .build()
+            );
+
+            pageRepository.saveAll(pages);
+
+            System.out.println("✅ Seeded " + pages.size() + " pages");
+        } else {
+            System.out.println("⏭️ Pages already exist, skipping");
         }
     }
 }

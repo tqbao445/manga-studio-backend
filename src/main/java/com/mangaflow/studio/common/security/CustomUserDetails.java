@@ -1,6 +1,6 @@
 package com.mangaflow.studio.common.security;
 
-import com.mangaflow.studio.auth.model.User;
+import com.mangaflow.studio.model.auth.User;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

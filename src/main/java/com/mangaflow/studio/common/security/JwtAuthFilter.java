@@ -1,7 +1,7 @@
 package com.mangaflow.studio.common.security;
 
-import com.mangaflow.studio.auth.model.User;
-import com.mangaflow.studio.auth.repository.UserRepository;
+import com.mangaflow.studio.model.auth.User;
+import com.mangaflow.studio.repository.auth.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
