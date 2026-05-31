@@ -124,16 +124,29 @@ Authorization: Bearer <token>
 
 ---
 
-## 3. CREATE — Tạo series mới
+## 3. CREATE — Tạo series mới (kèm upload ảnh bìa)
 
 ```
 POST /api/series
 Authorization: Bearer <token>
+Content-Type: multipart/form-data
 ```
 
 > 🔒 Yêu cầu: **hasRole('MANGAKA')** — chỉ MANGAKA
 
-**Request Body (JSON):**
+> 💡 Endpoint này yêu cầu **multipart/form-data** (không phải JSON thuần).
+> Gồm 2 parts:
+> - **`series`**: JSON của SeriesRequest (`Content-Type: application/json`)
+> - **`file`**: File ảnh bìa (image/jpeg, image/png, ...) — **bắt buộc**
+
+**Request mẫu (multipart/form-data):**
+
+| Part | Content-Type | Required | Mô tả |
+|------|-------------|----------|-------|
+| `series` | `application/json` | ✅ | Dữ liệu series (xem bảng dưới) |
+| `file` | `image/*` | ✅ | File ảnh bìa (JPEG, PNG, ...) |
+
+**Nội dung part `series` (JSON):**
 ```json
 {
   "title": "New Manga",
@@ -142,10 +155,12 @@ Authorization: Bearer <token>
   "genre": "ACTION",
   "targetDemographic": "SHONEN",
   "coverColor": "#e63946",
-  "coverImageUrl": null,
   "isMature": false
 }
 ```
+
+> 📌 **Lưu ý:** `coverImageUrl` không cần gửi trong JSON — file ảnh là nguồn duy nhất.
+> Backend tự động upload lên Cloudinary và gán URL vào `coverImageUrl`.
 
 | Field              | Type    | Required | Mô tả |
 |--------------------|---------|----------|-------|
@@ -155,10 +170,18 @@ Authorization: Bearer <token>
 | genre              | string  | ✅       | Thể loại (ACTION, FANTASY, ...) |
 | targetDemographic  | string  | ✅       | Đối tượng độc giả |
 | coverColor         | string  | ❌       | Màu nền card (#hex) |
-| coverImageUrl      | string  | ❌       | URL ảnh bìa |
 | isMature           | boolean | ❌       | Có nội dung người lớn không |
 
-**Response 201:** (SeriesResponse — status tự động = `DRAFT`)
+**Cloudinary folder structure:**
+```
+manga_studio/u{userId}/s{seriesId}/cover/cover.jpg
+```
+
+**Response 201:** (SeriesResponse — status tự động = `DRAFT`, `coverImageUrl` đã có URL từ Cloudinary)
+
+| Error | Status | Mô tả |
+|-------|--------|-------|
+| File is required | 400 | Không gửi file ảnh bìa |
 
 ---
 
@@ -167,14 +190,43 @@ Authorization: Bearer <token>
 ```
 PUT /api/series/{id}
 Authorization: Bearer <token>
+Content-Type: multipart/form-data
 ```
 
 > 🔒 Yêu cầu: **hasRole('MANGAKA')** + chỉ chủ sở hữu mới update được
 
+> 💡 Endpoint này yêu cầu **multipart/form-data** (không phải JSON thuần).
+> Gồm 2 parts:
+> - **`series`**: JSON của SeriesRequest (null-safe: field null = giữ nguyên)
+> - **`file`**: File ảnh bìa mới — **optional**
+
+**Request mẫu (multipart/form-data):**
+
+| Part | Content-Type | Required | Mô tả |
+|------|-------------|----------|-------|
+| `series` | `application/json` | ✅ | Dữ liệu series (null-safe update) |
+| `file` | `image/*` | ❌ | File ảnh bìa mới (nếu muốn đổi) |
+
+**Nội dung part `series` (JSON):**
+```json
+{
+  "title": "New Title",
+  "synopsis": "Updated synopsis",
+  "genre": "FANTASY",
+  "coverImageUrl": ""
+}
+```
+
 > 💡 **Null-safe update:** Chỉ gửi field muốn đổi, field null = giữ nguyên.
 > Không thể đổi: status, mangaka, tantouEditor, chapterCount, currentRank, currentTier.
 
-**Request Body (JSON):** (cùng cấu trúc với CREATE)
+### Xử lý ảnh bìa — 3 trường hợp
+
+| Trường hợp | Client gửi | Backend xử lý |
+|------------|-----------|---------------|
+| **1. Giữ nguyên ảnh** | Không gửi part `file`, không gửi `coverImageUrl` trong JSON | Giữ nguyên ảnh cũ |
+| **2. Đổi ảnh mới** | Gửi part `file` (ảnh mới) | Xoá ảnh cũ trên Cloudinary → upload ảnh mới → gán URL mới |
+| **3. Xoá ảnh** | Không gửi file, gửi `"coverImageUrl": ""` trong JSON | Xoá ảnh trên Cloudinary → set `null` trong DB |
 
 **Response 200:** (SeriesResponse)
 

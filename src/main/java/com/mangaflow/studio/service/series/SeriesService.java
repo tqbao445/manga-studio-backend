@@ -12,12 +12,14 @@ import com.mangaflow.studio.model.series.SeriesStatus;
 import com.mangaflow.studio.model.series.TargetDemographic;
 import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
+import com.mangaflow.studio.service.storage.CloudinaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * ── SeriesService ──
@@ -75,6 +77,13 @@ public class SeriesService {
      *   - updateEntity(): SeriesRequest → merge Series (update, null-safe)
      */
     private final SeriesMapper seriesMapper;
+
+    /**
+     * cloudinaryService: Service upload/xoá ảnh lên Cloudinary.
+     * Dùng để upload ảnh bìa (cover) khi tạo/cập nhật series,
+     * và xoá ảnh bìa khỏi Cloudinary khi xoá series.
+     */
+    private final CloudinaryService cloudinaryService;
 
     // ════════════════════════════════════════════════════════════
     // 1. GET ALL — Danh sách series (có filter + phân trang)
@@ -135,51 +144,81 @@ public class SeriesService {
     }
 
     // ════════════════════════════════════════════════════════════
-    // 3. CREATE — Tạo series mới
+    // 3. CREATE — Tạo series mới (kèm upload ảnh bìa)
     // ════════════════════════════════════════════════════════════
 
     /**
-     * Tạo một series mới.
-     *
-     * 📌 @PreAuthorize("hasAuthority('MANGAKA')") ở Controller:
-     *    Chỉ MANGAKA mới được gọi endpoint này.
+     * Tạo một series mới + upload ảnh bìa lên Cloudinary.
      *
      * 📌 Luồng xử lý:
      *    1. Lấy User entity từ DB — nếu user không tồn tại → 401.
      *    2. MapStruct toEntity(): SeriesRequest → Series entity
-     *       - status mặc định = DRAFT (cấu hình trong @Mapping)
-     *       - isMature null-safe: null → false
-     *       - mangaka = user từ DB
-     *    3. seriesRepository.save(): insert vào database
-     *    4. MapStruct toResponse(): Series entity → SeriesResponse DTO
+     *       - status mặc định = DRAFT
+     *       - coverImageUrl để null (chưa có ảnh)
+     *    3. seriesRepository.save(): insert vào database → series có ID
+     *    4. Upload file lên Cloudinary:
+     *       - folder: manga_studio/u{userId}/s{seriesId}/cover
+     *       - trả về URL
+     *    5. Gán URL vào series.coverImageUrl
+     *       (JPA managed entity → tự động UPDATE khi commit transaction)
+     *    6. MapStruct toResponse(): Series entity → SeriesResponse DTO
+     *
+     * 📌 Tại sao save rồi mới upload?
+     *    Vì cần seriesId để tạo folder trên Cloudinary.
+     *    JPA sinh ID sau khi save (IDENTITY strategy).
      *
      * @param request thông tin series từ client (title bắt buộc)
+     * @param file    file ảnh bìa (multipart) — bắt buộc
      * @param user    user đang đăng nhập (lấy userId để gán mangaka)
-     * @return SeriesResponse — series vừa tạo (kèm id từ database)
+     * @return SeriesResponse — series vừa tạo (kèm ảnh bìa)
      * @throws AppException 401 — nếu user không tồn tại
      */
     @Transactional
-    public SeriesResponse create(SeriesRequest request, CustomUserDetails user) {
+    public SeriesResponse create(SeriesRequest request, MultipartFile file, CustomUserDetails user) {
         // Bước 1: Xác thực user còn tồn tại trong DB
         User mangaka = userRepository.findById(user.getUserId())
                 .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, "User not found"));
 
         // Bước 2: MapStruct chuyển Request → Entity (status DRAFT, mangaka gán tự động)
-        // Bước 3: Lưu xuống DB
-        // Bước 4: Map Entity → DTO và trả về
-        return seriesMapper.toResponse(
-                seriesRepository.save(seriesMapper.toEntity(request, mangaka)));
+        Series series = seriesMapper.toEntity(request, mangaka);
+
+        // Bước 3: Lưu xuống DB → lúc này series có ID (IDENTITY auto-increment)
+        series = seriesRepository.save(series);
+
+        // Bước 4: Upload ảnh bìa lên Cloudinary
+        //   folder = manga_studio/u{userId}/s{seriesId}/cover
+        //   public_id = "cover" (overwrite=true → ghi đè nếu re-upload)
+        String coverUrl = cloudinaryService.uploadCover(file, mangaka.getId(), series.getId());
+
+        // Bước 5: Gán URL ảnh bìa vào entity
+        //   JPA biết entity này đã được save (managed) → tự động UPDATE
+        //   mà không cần gọi seriesRepository.save() lần nữa
+        series.setCoverImageUrl(coverUrl);
+
+        // Bước 6: Map Entity → DTO và trả về
+        return seriesMapper.toResponse(series);
     }
 
     // ════════════════════════════════════════════════════════════
-    // 4. UPDATE — Cập nhật thông tin series
+    // 4. UPDATE — Cập nhật thông tin series (có thể kèm ảnh bìa mới)
     // ════════════════════════════════════════════════════════════
 
     /**
-     * Cập nhật thông tin series.
+     * Cập nhật thông tin series. Hỗ trợ 3 trường hợp xử lý ảnh bìa:
      *
-     * 📌 @PreAuthorize("hasAuthority('MANGAKA')") ở Controller:
-     *    Chỉ MANGAKA mới được gọi.
+     * ┌──────────────────────┬───────────────────┬──────────────────────────────┐
+     * │ Trường hợp           │ Client gửi        │ Backend xử lý                │
+     * ├──────────────────────┼───────────────────┼──────────────────────────────┤
+     * │ 1. Không đổi ảnh     │ Không gửi file    │ Null-safe update JSON        │
+     * │                      │                   │ Giữ nguyên ảnh cũ            │
+     * ├──────────────────────┼───────────────────┼──────────────────────────────┤
+     * │ 2. Đổi ảnh mới       │ Có gửi file       │ Xoá ảnh cũ trên Cloudinary   │
+     * │                      │                   │ Upload ảnh mới               │
+     * │                      │                   │ Gán URL mới vào entity       │
+     * ├──────────────────────┼───────────────────┼──────────────────────────────┤
+     * │ 3. Xoá ảnh           │ coverImageUrl = ""│ Xoá ảnh trên Cloudinary      │
+     * │                      │ Không gửi file    │ Gán coverImageUrl = null     │
+     * └──────────────────────┴───────────────────┴──────────────────────────────┘
      *
      * 📌 Ownership check:
      *    Dùng findByIdAndMangakaId() — nếu không tìm thấy series
@@ -189,7 +228,7 @@ public class SeriesService {
      *    updateEntity() dùng @BeanMapping(nullValuePropertyMappingStrategy = IGNORE)
      *    → Chỉ update field khác null trong request.
      *    → Field null trong request giữ nguyên giá trị cũ.
-     *    → Logic này giống hệt đoạn if (title != null) series.setTitle() thủ công.
+     *    → coverImageUrl trong JSON: null → giữ nguyên, "" → xoá ảnh.
      *
      * 📌 Các field KHÔNG được update qua endpoint này:
      *    - status:  dùng submit/approve/reject/updateStatus riêng
@@ -199,21 +238,41 @@ public class SeriesService {
      *
      * @param id      ID của series cần sửa
      * @param request dữ liệu mới (chỉ gửi field muốn thay đổi, null = giữ nguyên)
+     * @param file    file ảnh bìa mới (optional) — null nếu không muốn đổi ảnh
      * @param user    user đang đăng nhập (để kiểm tra ownership)
      * @return SeriesResponse — series sau khi cập nhật
      * @throws AppException 404 — nếu không tìm thấy hoặc không phải chủ
      */
     @Transactional
-    public SeriesResponse update(Long id, SeriesRequest request, CustomUserDetails user) {
-        // Kiểm tra ownership: series này có thuộc về user không?
+    public SeriesResponse update(Long id, SeriesRequest request, MultipartFile file, CustomUserDetails user) {
+        // Bước 1: Kiểm tra ownership
         Series series = seriesRepository.findByIdAndMangakaId(id, user.getUserId())
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Series not found or not owned by you"));
 
-        // MapStruct null-safe: chỉ update field khác null
+        // Bước 2: Xử lý ảnh bìa (nếu có)
+        if (file != null && !file.isEmpty()) {
+            // ── Trường hợp 2: Có file → đổi ảnh bìa mới ──
+            // Xoá ảnh cũ trên Cloudinary nếu có
+            if (series.getCoverImageUrl() != null) {
+                cloudinaryService.deleteImageByUrl(series.getCoverImageUrl());
+            }
+            // Upload ảnh mới
+            String coverUrl = cloudinaryService.uploadCover(file, series.getMangaka().getId(), series.getId());
+            series.setCoverImageUrl(coverUrl);
+        } else if (request.getCoverImageUrl() != null && request.getCoverImageUrl().isEmpty()) {
+            // ── Trường hợp 3: coverImageUrl = "" → xoá ảnh ──
+            if (series.getCoverImageUrl() != null) {
+                cloudinaryService.deleteImageByUrl(series.getCoverImageUrl());
+            }
+            series.setCoverImageUrl(null);
+        }
+        // ── Trường hợp 1: không có file, coverImageUrl null → giữ nguyên ──
+
+        // Bước 3: MapStruct null-safe update các field JSON khác (title, genre, ...)
         seriesMapper.updateEntity(series, request);
 
-        // Lưu thay đổi → map sang DTO → trả về
+        // Bước 4: Save → map sang DTO → trả về
         return seriesMapper.toResponse(seriesRepository.save(series));
     }
 
@@ -255,6 +314,11 @@ public class SeriesService {
         if (series.getStatus() != SeriesStatus.DRAFT) {
             throw new AppException(HttpStatus.BAD_REQUEST,
                     "Only DRAFT series can be deleted");
+        }
+
+        // Xoá ảnh bìa trên Cloudinary trước (tránh rác)
+        if (series.getCoverImageUrl() != null) {
+            cloudinaryService.deleteImageByUrl(series.getCoverImageUrl());
         }
 
         // Thực hiện xoá
