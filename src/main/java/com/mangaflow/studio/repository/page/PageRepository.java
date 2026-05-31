@@ -91,4 +91,16 @@ public interface PageRepository extends JpaRepository<Page, Long> {
      * @return true nếu đã tồn tại, false nếu chưa
      */
     boolean existsByChapterIdAndPageNumber(Long chapterId, Integer pageNumber);
+
+    /**
+     * Lấy danh sách pages theo danh sách chapterIds.
+     * Dùng cho filter seriesId trong TaskService.
+     * <p>
+     * 📌 SQL tự sinh:
+     *    SELECT * FROM pages WHERE chapter_id IN (?)
+     *
+     * @param chapterIds Danh sách IDs của chapters
+     * @return List<Page> danh sách pages
+     */
+    List<Page> findByChapterIdIn(List<Long> chapterIds);
 }
