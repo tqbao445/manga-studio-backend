@@ -50,4 +50,16 @@ public interface RegionRepository extends JpaRepository<Region, Long> {
      * @return List<Region> danh sách regions đã sắp xếp
      */
     List<Region> findByPageIdOrderBySortOrderAsc(Long pageId);
+
+    /**
+     * Lấy danh sách regions theo danh sách pageIds.
+     * Dùng cho filter seriesId trong TaskService.
+     * <p>
+     * 📌 SQL tự sinh:
+     *    SELECT * FROM region WHERE page_id IN (?)
+     *
+     * @param pageIds Danh sách IDs của pages
+     * @return List<Region> danh sách regions
+     */
+    List<Region> findByPageIdIn(List<Long> pageIds);
 }
