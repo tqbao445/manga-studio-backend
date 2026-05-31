@@ -15,6 +15,7 @@ import com.mangaflow.studio.service.series.SeriesWorkflowService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.MediaType;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/series")
@@ -61,26 +63,56 @@ public class SeriesController {
     // ══════════════════════════════════════════════
     // 3. POST /api/series — Tạo series mới
     // ══════════════════════════════════════════════
+    //
+    // 📌 consumes = MULTIPART_FORM_DATA_VALUE:
+    //    Client gửi multipart/form-data với 2 phần:
+    //      - "series": JSON của SeriesRequest (application/json)
+    //      - "file":   File ảnh bìa (image/*) — bắt buộc
+    //
+    // 📌 @RequestPart("series"):
+    //    Spring tự parse JSON string trong multipart thành SeriesRequest object.
+    //    Validation (@Valid) vẫn hoạt động bình thường.
+    //
+    // 📌 @RequestParam("file") MultipartFile file:
+    //    Nhận file ảnh từ form-data.
+    //    required = true (mặc định) → bắt buộc phải có file.
+    // ══════════════════════════════════════════════
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<SeriesResponse> create(
-            @Valid @RequestBody SeriesRequest request,
+            @RequestPart("series") @Valid SeriesRequest request,
+            @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(seriesService.create(request, user));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(seriesService.create(request, file, user));
     }
 
     // ══════════════════════════════════════════════
     // 4. PUT /api/series/{id} — Cập nhật series
     // ══════════════════════════════════════════════
+    //
+    // 📌 consumes = MULTIPART_FORM_DATA_VALUE:
+    //    Client gửi multipart/form-data với 2 phần:
+    //      - "series": JSON của SeriesRequest (application/json)
+    //      - "file":   File ảnh bìa mới (image/*) — optional
+    //
+    // 📌 @RequestPart("series"):
+    //    Null-safe update: field null trong JSON → giữ nguyên giá trị cũ.
+    //
+    // 📌 @RequestParam(value = "file", required = false):
+    //    Nếu không gửi file → giữ nguyên ảnh cũ.
+    //    Nếu gửi file → upload ảnh mới, xoá ảnh cũ.
+    // ══════════════════════════════════════════════
 
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<SeriesResponse> update(
             @PathVariable Long id,
-            @Valid @RequestBody SeriesRequest request,
+            @RequestPart("series") @Valid SeriesRequest request,
+            @RequestParam(value = "file", required = false) MultipartFile file,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return ResponseEntity.ok(seriesService.update(id, request, user));
+        return ResponseEntity.ok(seriesService.update(id, request, file, user));
     }
 
     // ══════════════════════════════════════════════

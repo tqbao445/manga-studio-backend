@@ -240,6 +240,81 @@ public class CloudinaryService {
     }
 
     // ════════════════════════════════════════════════════════════════
+    //  COVER METHODS (dành cho upload ảnh bìa / thumbnail của Series)
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * ── uploadCover ──
+     * Upload ảnh bìa (thumbnail) của series lên Cloudinary.
+     *
+     * 📌 Cấu trúc thư mục:
+     *    manga_studio/u{userId}/s{seriesId}/cover/cover.jpg
+     *
+     *    Giải thích từng cấp:
+     *    - manga_studio        : thư mục gốc của dự án (cố định)
+     *    - u{userId}           : user ID của tác giả (vd: u3 = user id = 3)
+     *    - s{seriesId}         : series ID (vd: s1 = series id = 1)
+     *    - cover/cover.jpg     : file ảnh bìa, luôn có tên "cover"
+     *
+     * 📌 overwrite = true:
+     *    Khi tạo series lần đầu, upload file → public_id = "cover".
+     *    Khi update series sau này (đổi ảnh bìa), upload lại file mới
+     *    với cùng public_id → Cloudinary tự động ghi đè file cũ.
+     *    → Không sinh ra file rác trên Cloudinary.
+     *
+     * 📌 transformation = "c_fill,w_600":
+     *    - c_fill: crop ảnh để fill đúng kích thước, giữ tâm ảnh
+     *    - w_600:  width = 600px (đủ lớn cho thumbnail card)
+     *    - Chiều cao tự động tính theo tỷ lệ ảnh gốc
+     *    → Ảnh thumbnail đồng nhất, load nhanh trên danh sách series.
+     *
+     * 📌 URL trả về có dạng:
+     *    https://res.cloudinary.com/{cloudName}/image/upload/c_fill,w_600/v{version}/manga_studio/u{userId}/s{seriesId}/cover/cover.jpg
+     *
+     * @param file     File ảnh từ frontend (MultipartFile) — bắt buộc khi tạo series
+     * @param userId   ID của user (tác giả) — lấy từ JWT token
+     * @param seriesId ID của series — có được sau khi save entity vào DB
+     * @return URL đầy đủ của ảnh cover trên Cloudinary (vd: https://res.cloudinary.com/.../cover.jpg)
+     */
+    public String uploadCover(MultipartFile file, Long userId, Long seriesId) {
+        try {
+            // ── Xây dựng folder + public_id ──
+            // folder = "manga_studio/u{userId}/s{seriesId}/cover"
+            // public_id = "cover" (tên file cố định, không đổi)
+            //
+            // Ví dụ: userId=3, seriesId=1
+            // → folder = "manga_studio/u3/s1/cover"
+            // → public_id = "cover"
+            // → Cloudinary lưu file tại: manga_studio/u3/s1/cover/cover.jpg
+            String folder = "manga_studio/u" + userId + "/s" + seriesId + "/cover";
+
+            // ── Upload file lên Cloudinary ──
+            Map<?, ?> result = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "public_id", "cover",
+                            "resource_type", "image",
+                            "overwrite", true,
+                            "transformation", "c_fill,w_600"
+                    )
+            );
+
+            // ── Lấy URL từ kết quả trả về ──
+            // Cloudinary trả về URL dạng:
+            // https://res.cloudinary.com/{cloudName}/image/upload/c_fill,w_600/v{version}/manga_studio/u{userId}/s{seriesId}/cover/cover.jpg
+            return (String) result.get("url");
+
+        } catch (IOException e) {
+            // IOException khi:
+            //   - file.getBytes() lỗi (file hỏng, không đọc được)
+            //   - Mạng lỗi khi gọi Cloudinary API
+            //   - Cloudinary server trả về lỗi
+            throw new RuntimeException("Failed to upload cover to Cloudinary", e);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
     //  AVATAR METHODS
     // ════════════════════════════════════════════════════════════════
 
