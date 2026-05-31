@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -35,8 +36,8 @@ public class ChapterResponse {
     @Schema(description = "% hoàn thành (0-100)", example = "0")
     private Integer progressPercent;
 
-    @Schema(description = "Hạn chót", example = "2026-06-15T00:00:00")
-    private LocalDateTime deadline;
+    @Schema(description = "Hạn chót", example = "2026-06-15")
+    private LocalDate deadline;
 
     @Schema(description = "Ngày xuất bản", example = "2026-07-01T00:00:00")
     private LocalDateTime publishDate;

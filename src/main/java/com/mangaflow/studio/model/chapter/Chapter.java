@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -41,7 +42,7 @@ public class Chapter {
     @Column(name = "progress_percent")
     private Integer progressPercent = 0;
 
-    private LocalDateTime deadline;
+    private LocalDate deadline;
 
     @Column(name = "publish_date")
     private LocalDateTime publishDate;

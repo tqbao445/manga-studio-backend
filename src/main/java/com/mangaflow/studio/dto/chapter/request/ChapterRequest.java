@@ -3,7 +3,7 @@ package com.mangaflow.studio.dto.chapter.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Data
 @Schema(description = "Request tạo chapter mới")
@@ -16,6 +16,6 @@ public class ChapterRequest {
     @Schema(description = "Tên chapter", example = "The Beginning")
     private String title;
 
-    @Schema(description = "Hạn chót", example = "2026-06-15T00:00:00")
-    private LocalDateTime deadline;
+    @Schema(description = "Hạn chót", example = "2026-06-15")
+    private LocalDate deadline;
 }
