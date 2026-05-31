@@ -20,10 +20,12 @@ services:
   db-setup:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: manga-studio-db-setup
-    entrypoint: >
-      /bin/bash -c "
-      /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P ${MSSQL_SA_PASSWORD} -C -Q 'IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = N\"manga_studio\") CREATE DATABASE manga_studio'
-      " && echo "Database 'manga_studio' is ready."
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P ${MSSQL_SA_PASSWORD} -C -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = N'manga_studio') CREATE DATABASE manga_studio"
+        echo "Database 'manga_studio' is ready."
     depends_on:
       sqlserver:
         condition: service_healthy
