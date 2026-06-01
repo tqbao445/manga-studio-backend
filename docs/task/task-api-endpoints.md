@@ -4,7 +4,7 @@
 
 | Role | Xem task | Tạo/Sửa/Xoá Task | Nộp bài | Duyệt bài |
 |------|----------|------------------|---------|-----------|
-| MANAGAKA | ✅ tất cả | ✅ | ❌ | ✅ |
+| MANGAKA | ✅ tất cả | ✅ | ❌ | ✅ |
 | ASSISTANT | ✅ chỉ task của mình | ❌ | ✅ | ❌ |
 | TANTOU_EDITOR | ✅ tất cả | ❌ | ❌ | ❌ |
 | EDITORIAL_BOARD | ✅ tất cả | ❌ | ❌ | ❌ |
@@ -18,15 +18,15 @@
 | 1 | GET | `/api/tasks` | Authenticated | Danh sách tasks với filter & phân trang |
 | 2 | GET | `/api/tasks/{id}` | Authenticated | Chi tiết 1 task kèm submissions & attachments |
 | 3 | GET | `/api/regions/{regionId}/tasks` | Authenticated | Tasks của 1 region |
-| 4 | POST | `/api/regions/{regionId}/tasks` | MANAGAKA | Tạo task mới, gán cho ASSISTANT |
-| 5 | PUT | `/api/tasks/{id}` | MANAGAKA | Cập nhật thông tin task |
-| 6 | PATCH | `/api/tasks/{id}/status` | MANAGAKA / ASSISTANT | Đổi trạng thái task |
-| 7 | DELETE | `/api/tasks/{id}` | MANAGAKA | Xoá task (chỉ khi TODO) |
+| 4 | POST | `/api/regions/{regionId}/tasks` | MANGAKA | Tạo task mới, gán cho ASSISTANT |
+| 5 | PUT | `/api/tasks/{id}` | MANGAKA | Cập nhật thông tin task |
+| 6 | PATCH | `/api/tasks/{id}/status` | MANGAKA / ASSISTANT | Đổi trạng thái task |
+| 7 | DELETE | `/api/tasks/{id}` | MANGAKA | Xoá task (chỉ khi TODO) |
 | 8 | GET | `/api/tasks/{taskId}/submissions` | Authenticated | Lịch sử nộp bài theo version |
 | 9 | POST | `/api/tasks/{taskId}/submissions` | ASSISTANT | Nộp bài làm |
-| 10 | PATCH | `/api/submissions/{id}/status` | MANAGAKA | Duyệt bài (approve / yêu cầu sửa) |
-| 11 | POST | `/api/tasks/{taskId}/attachments` | MANAGAKA | Đính kèm file tham khảo |
-| 12 | DELETE | `/api/attachments/{id}` | MANAGAKA | Xoá file đính kèm |
+| 10 | PATCH | `/api/submissions/{id}/status` | MANGAKA | Duyệt bài (approve / yêu cầu sửa) |
+| 11 | POST | `/api/tasks/{taskId}/attachments` | MANGAKA | Đính kèm file tham khảo |
+| 12 | DELETE | `/api/attachments/{id}` | MANGAKA | Xoá file đính kèm |
 
 ---
 
@@ -55,7 +55,7 @@
 
 **Logic đặc biệt:**
 - Nếu user là `ASSISTANT`: tự động filter `assignedTo = currentUserId` (chỉ thấy task của mình), không cần truyền param
-- Nếu user là `MANAGAKA`: tự động filter `assignedBy = currentUserId` (chỉ thấy task mình giao)
+- Nếu user là `MANGAKA`: tự động filter `assignedBy = currentUserId` (chỉ thấy task mình giao)
 - Nếu user là `TANTOU_EDITOR` / `EDITORIAL_BOARD`: xem được tất cả task
 
 **Response 200:**
@@ -204,9 +204,9 @@
 
 ### 4. POST /api/regions/{regionId}/tasks
 
-**Mô tả:** MANAGAKA tạo task mới và gán cho 1 ASSISTANT. Hệ thống tự động copy `pageImageUrl` từ region sang task.
+**Mô tả:** MANGAKA tạo task mới và gán cho 1 ASSISTANT. Hệ thống tự động copy `pageImageUrl` từ region sang task.
 
-**Role:** `MANAGAKA` (`@PreAuthorize("hasRole('MANAGAKA')")`)
+**Role:** `MANGAKA` (`@PreAuthorize("hasRole('MANGAKA')")`)
 
 **Path Variable:**
 
@@ -307,7 +307,7 @@ public TaskResponse createTask(Long regionId, TaskRequest request, User currentU
 
 **Mô tả:** Cập nhật thông tin task (title, priority, description, notes, assistant, dueDate...). Chỉ được sửa khi task đang ở trạng thái `TODO` hoặc `REJECTED`.
 
-**Role:** `MANAGAKA`
+**Role:** `MANGAKA`
 
 **Path Variable:**
 
@@ -341,9 +341,9 @@ public TaskResponse createTask(Long regionId, TaskRequest request, User currentU
 
 ### 6. PATCH /api/tasks/{id}/status
 
-**Mô tả:** Chuyển trạng thái task. ASSISTANT nhận task (TODO → IN_PROGRESS), MANAGAKA từ chối (IN_PROGRESS → REJECTED), ASSISTANT làm lại (REJECTED → IN_PROGRESS).
+**Mô tả:** Chuyển trạng thái task. ASSISTANT nhận task (TODO → IN_PROGRESS), MANGAKA từ chối (IN_PROGRESS → REJECTED), ASSISTANT làm lại (REJECTED → IN_PROGRESS).
 
-**Role:** `MANAGAKA` hoặc `ASSISTANT` (tuỳ chuyển)
+**Role:** `MANGAKA` hoặc `ASSISTANT` (tuỳ chuyển)
 
 **Path Variable:**
 
@@ -363,7 +363,7 @@ public TaskResponse createTask(Long regionId, TaskRequest request, User currentU
 | Chuyển từ | → | Thành | Ai được làm | Validation |
 |-----------|---|-------|-------------|------------|
 | `TODO` | → | `IN_PROGRESS` | **ASSISTANT** được gán | Current user phải là task.assistant |
-| `IN_PROGRESS` | → | `REJECTED` | **MANAGAKA** | Current user phải là task.assignedBy |
+| `IN_PROGRESS` | → | `REJECTED` | **MANGAKA** | Current user phải là task.assignedBy |
 | `REJECTED` | → | `IN_PROGRESS` | **ASSISTANT** được gán | Current user phải là task.assistant |
 
 > **Không hỗ trợ:** `IN_PROGRESS → DONE` — thay vào đó dùng `POST /api/tasks/{id}/submissions` (nộp bài) + `PATCH /api/submissions/{id}/status` (duyệt)
@@ -382,7 +382,7 @@ public TaskResponse updateTaskStatus(Long id, TaskStatus newStatus, User current
             throw new AccessDeniedException("Only assigned assistant can start this task");
         }
     }
-    // IN_PROGRESS → REJECTED: chỉ MANAGAKA
+    // IN_PROGRESS → REJECTED: chỉ MANGAKA
     else if (currentStatus == TaskStatus.IN_PROGRESS && newStatus == TaskStatus.REJECTED) {
         if (!task.getAssignedBy().getId().equals(currentUser.getId())) {
             throw new AccessDeniedException("Only the creator can reject this task");
@@ -416,7 +416,7 @@ public TaskResponse updateTaskStatus(Long id, TaskStatus newStatus, User current
 
 **Mô tả:** Xoá task. Chỉ xoá được khi task đang ở trạng thái `TODO` (chưa ai nhận làm).
 
-**Role:** `MANAGAKA`
+**Role:** `MANGAKA`
 
 **Path Variable:**
 
@@ -507,7 +507,7 @@ public TaskResponse updateTaskStatus(Long id, TaskStatus newStatus, User current
 |-------|------|----------|------------|
 | `resultImageUrl` | String | ✅ | URL ảnh kết quả (JPG/PNG) |
 | `fileUrl` | String | ❌ | URL file nguồn (PSD/CLIP) |
-| `note` | String | ❌ | Ghi chú cho MANAGAKA |
+| `note` | String | ❌ | Ghi chú cho MANGAKA |
 
 **Logic:**
 ```java
@@ -568,9 +568,9 @@ public TaskSubmissionResponse submitTask(Long taskId, TaskSubmissionRequest requ
 
 ### 10. PATCH /api/submissions/{id}/status
 
-**Mô tả:** MANAGAKA duyệt bài nộp của ASSISTANT. Nếu APPROVED → task đánh dấu DONE. Nếu REVISION_REQUIRED → task quay về IN_PROGRESS để ASSISTANT sửa lại.
+**Mô tả:** MANGAKA duyệt bài nộp của ASSISTANT. Nếu APPROVED → task đánh dấu DONE. Nếu REVISION_REQUIRED → task quay về IN_PROGRESS để ASSISTANT sửa lại.
 
-**Role:** `MANAGAKA` — chỉ duyệt được task do mình tạo
+**Role:** `MANGAKA` — chỉ duyệt được task do mình tạo
 
 **Path Variable:**
 
@@ -640,16 +640,16 @@ public TaskSubmissionResponse reviewSubmission(Long submissionId, TaskSubmission
 
 **Error responses:**
 - `400 Bad Request`: Submission không ở trạng thái SUBMITTED
-- `403 Forbidden`: User không phải MANAGAKA đã tạo task này
+- `403 Forbidden`: User không phải MANGAKA đã tạo task này
 - `404 Not Found`: Submission không tồn tại
 
 ---
 
 ### 11. POST /api/tasks/{taskId}/attachments
 
-**Mô tả:** MANAGAKA đính kèm file tham khảo (ảnh mẫu, tài liệu hướng dẫn) cho task để ASSISTANT tham khảo trước khi làm.
+**Mô tả:** MANGAKA đính kèm file tham khảo (ảnh mẫu, tài liệu hướng dẫn) cho task để ASSISTANT tham khảo trước khi làm.
 
-**Role:** `MANAGAKA`
+**Role:** `MANGAKA`
 
 **Path Variable:**
 
@@ -676,8 +676,8 @@ public TaskAttachmentResponse addAttachment(Long taskId, String fileUrl, User cu
     Task task = taskRepository.findById(taskId)
         .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + taskId));
 
-    // MANAGAKA chỉ có thể thêm attachment cho task mình tạo
-    // (hoặc bỏ qua check này nếu muốn bất kỳ MANAGAKA nào cũng có thể thêm)
+    // MANGAKA chỉ có thể thêm attachment cho task mình tạo
+    // (hoặc bỏ qua check này nếu muốn bất kỳ MANGAKA nào cũng có thể thêm)
     if (!task.getAssignedBy().getId().equals(currentUser.getId())) {
         throw new AccessDeniedException("Only the task creator can add attachments");
     }
@@ -712,7 +712,7 @@ public TaskAttachmentResponse addAttachment(Long taskId, String fileUrl, User cu
 
 **Mô tả:** Xoá file đính kèm khỏi task.
 
-**Role:** `MANAGAKA`
+**Role:** `MANGAKA`
 
 **Path Variable:**
 
@@ -734,12 +734,12 @@ public TaskAttachmentResponse addAttachment(Long taskId, String fileUrl, User cu
 | 1 | GET | `/api/tasks` | Query params | `Page<TaskResponse>` | Authenticated |
 | 2 | GET | `/api/tasks/{id}` | — | `TaskResponse` | Authenticated |
 | 3 | GET | `/api/regions/{regionId}/tasks` | — | `TaskResponse[]` | Authenticated |
-| 4 | POST | `/api/regions/{regionId}/tasks` | `TaskRequest` | `TaskResponse` (201) | MANAGAKA |
-| 5 | PUT | `/api/tasks/{id}` | `TaskRequest` | `TaskResponse` | MANAGAKA |
-| 6 | PATCH | `/api/tasks/{id}/status` | `{ status }` | `TaskResponse` | MANAGAKA / ASSISTANT |
-| 7 | DELETE | `/api/tasks/{id}` | — | 204 | MANAGAKA |
+| 4 | POST | `/api/regions/{regionId}/tasks` | `TaskRequest` | `TaskResponse` (201) | MANGAKA |
+| 5 | PUT | `/api/tasks/{id}` | `TaskRequest` | `TaskResponse` | MANGAKA |
+| 6 | PATCH | `/api/tasks/{id}/status` | `{ status }` | `TaskResponse` | MANGAKA / ASSISTANT |
+| 7 | DELETE | `/api/tasks/{id}` | — | 204 | MANGAKA |
 | 8 | GET | `/api/tasks/{taskId}/submissions` | — | `TaskSubmissionResponse[]` | Authenticated |
 | 9 | POST | `/api/tasks/{taskId}/submissions` | `TaskSubmissionRequest` | `TaskSubmissionResponse` (201) | ASSISTANT |
-| 10 | PATCH | `/api/submissions/{id}/status` | `{ status }` | `TaskSubmissionResponse` | MANAGAKA |
-| 11 | POST | `/api/tasks/{taskId}/attachments` | `{ fileUrl }` | `TaskAttachmentResponse` (201) | MANAGAKA |
-| 12 | DELETE | `/api/attachments/{id}` | — | 204 | MANAGAKA |
+| 10 | PATCH | `/api/submissions/{id}/status` | `{ status }` | `TaskSubmissionResponse` | MANGAKA |
+| 11 | POST | `/api/tasks/{taskId}/attachments` | `{ fileUrl }` | `TaskAttachmentResponse` (201) | MANGAKA |
+| 12 | DELETE | `/api/attachments/{id}` | — | 204 | MANGAKA |

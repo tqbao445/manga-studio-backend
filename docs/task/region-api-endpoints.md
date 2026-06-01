@@ -24,11 +24,11 @@
 | # | Method | Endpoint | Role | Mục đích |
 |---|--------|----------|------|----------|
 | 1 | GET | `/api/v1/pages/{pageId}/regions` | Authenticated | Danh sách regions của 1 page |
-| 2 | POST | `/api/v1/pages/{pageId}/regions` | MANAGAKA | Tạo region mới trên page |
-| 3 | PUT | `/api/v1/regions/{id}` | MANAGAKA | Cập nhật region (label, type, toạ độ, kích thước) |
-| 4 | PATCH | `/api/v1/regions/{id}/status` | MANAGAKA | Đổi trạng thái region |
-| 5 | DELETE | `/api/v1/regions/{id}` | MANAGAKA | Xoá region |
-| 6 | PUT | `/api/v1/pages/{pageId}/regions/reorder` | MANAGAKA | Sắp xếp lại thứ tự regions |
+| 2 | POST | `/api/v1/pages/{pageId}/regions` | MANGAKA | Tạo region mới trên page |
+| 3 | PUT | `/api/v1/regions/{id}` | MANGAKA | Cập nhật region (label, type, toạ độ, kích thước) |
+| 4 | PATCH | `/api/v1/regions/{id}/status` | MANGAKA | Đổi trạng thái region |
+| 5 | DELETE | `/api/v1/regions/{id}` | MANGAKA | Xoá region |
+| 6 | PUT | `/api/v1/pages/{pageId}/regions/reorder` | MANGAKA | Sắp xếp lại thứ tự regions |
 
 ---
 
@@ -89,9 +89,9 @@
 
 ### 2. POST /api/v1/pages/{pageId}/regions
 
-**Mô tả:** MANAGAKA tạo region mới trên page. Khi vẽ vùng trên canvas (kéo thả chuột), frontend gọi API này để lưu region.
+**Mô tả:** MANGAKA tạo region mới trên page. Khi vẽ vùng trên canvas (kéo thả chuột), frontend gọi API này để lưu region.
 
-**Role:** `MANAGAKA`
+**Role:** `MANGAKA`
 
 **Path Variable:**
 
@@ -188,7 +188,7 @@ public RegionResponse createRegion(Long pageId, RegionRequest request) {
 
 **Mô tả:** Cập nhật thông tin region. Frontend gọi khi user chỉnh sửa label, type, hoặc kéo thay đổi vị trí/kích thước region trên canvas.
 
-**Role:** `MANAGAKA`
+**Role:** `MANGAKA`
 
 **Path Variable:**
 
@@ -220,9 +220,9 @@ public RegionResponse createRegion(Long pageId, RegionRequest request) {
 
 ### 4. PATCH /api/v1/regions/{id}/status
 
-**Mô tả:** Đổi trạng thái region. Khi MANAGAKA tạo xong region → mặc định `PENDING`. Khi có task được tạo → chuyển `IN_PROGRESS`. Khi task hoàn thành → `COMPLETED`. Khi duyệt → `APPROVED`.
+**Mô tả:** Đổi trạng thái region. Khi MANGAKA tạo xong region → mặc định `PENDING`. Khi có task được tạo → chuyển `IN_PROGRESS`. Khi task hoàn thành → `COMPLETED`. Khi duyệt → `APPROVED`.
 
-**Role:** `MANAGAKA`
+**Role:** `MANGAKA`
 
 **Path Variable:**
 
@@ -261,7 +261,7 @@ public RegionResponse createRegion(Long pageId, RegionRequest request) {
 
 **Mô tả:** Xoá region. Chỉ xoá được khi region chưa có task nào (`PENDING`), hoặc không có task `IN_PROGRESS`.
 
-**Role:** `MANAGAKA`
+**Role:** `MANGAKA`
 
 **Path Variable:**
 
@@ -297,7 +297,7 @@ public void deleteRegion(Long id) {
 
 **Mô tả:** Sắp xếp lại thứ tự các regions trên page (sau khi kéo thả trong RegionPanel). Frontend gửi mảng region IDs theo thứ tự mới (từ dưới lên trên).
 
-**Role:** `MANAGAKA`
+**Role:** `MANGAKA`
 
 **Path Variable:**
 
@@ -351,11 +351,11 @@ public List<RegionResponse> reorderRegions(Long pageId, List<Long> regionIds) {
 | # | Method | Endpoint | Request Body | Response | Role |
 |---|--------|----------|-------------|----------|------|
 | 1 | GET | `/api/v1/pages/{pageId}/regions` | — | `RegionResponse[]` | Authenticated |
-| 2 | POST | `/api/v1/pages/{pageId}/regions` | `RegionRequest` | `RegionResponse` (201) | MANAGAKA |
-| 3 | PUT | `/api/v1/regions/{id}` | `RegionRequest` | `RegionResponse` | MANAGAKA |
-| 4 | PATCH | `/api/v1/regions/{id}/status` | `{ status }` | `RegionResponse` | MANAGAKA |
-| 5 | DELETE | `/api/v1/regions/{id}` | — | 204 | MANAGAKA |
-| 6 | PUT | `/api/v1/pages/{pageId}/regions/reorder` | `{ regionIds[] }` | `RegionResponse[]` | MANAGAKA |
+| 2 | POST | `/api/v1/pages/{pageId}/regions` | `RegionRequest` | `RegionResponse` (201) | MANGAKA |
+| 3 | PUT | `/api/v1/regions/{id}` | `RegionRequest` | `RegionResponse` | MANGAKA |
+| 4 | PATCH | `/api/v1/regions/{id}/status` | `{ status }` | `RegionResponse` | MANGAKA |
+| 5 | DELETE | `/api/v1/regions/{id}` | — | 204 | MANGAKA |
+| 6 | PUT | `/api/v1/pages/{pageId}/regions/reorder` | `{ regionIds[] }` | `RegionResponse[]` | MANGAKA |
 
 ## Quan hệ với Task API
 

@@ -93,12 +93,12 @@ public class TaskService {
      * Lấy danh sách tasks với filter động và phân trang.
      * Tuỳ role mà kết quả trả về khác nhau:
      * - ASSISTANT:      chỉ thấy task của mình (assignedTo = currentUserId)
-     * - MANAGAKA:       chỉ thấy task mình giao (assignedBy = currentUserId)
+     * - MANGAKA:       chỉ thấy task mình giao (assignedBy = currentUserId)
      * - TANTOU_EDITOR / EDITORIAL_BOARD: thấy tất cả task
      * <p>
      * 📌 Dùng JPA Specification để build WHERE clause động:
      *    - status, assignedTo, assignedBy, priority, regionId, seriesId
-     *    - role-based filter tự động (ASSISTANT/MANAGAKA)
+     *    - role-based filter tự động (ASSISTANT/MANGAKA)
      * <p>
      * 📌 seriesId filter:
      *    Task → Region (regionId) → Page (pageId) → Chapter (chapterId) → Series
@@ -107,7 +107,7 @@ public class TaskService {
      *
      * @param status     Lọc theo trạng thái (optional)
      * @param assignedTo Lọc theo ASSISTANT ID (optional)
-     * @param assignedBy Lọc theo MANAGAKA ID (optional)
+     * @param assignedBy Lọc theo MANGAKA ID (optional)
      * @param priority   Lọc theo mức ưu tiên (optional)
      * @param regionId   Lọc theo region (optional)
      * @param seriesId   Lọc theo series (optional) — join qua region → page → chapter
@@ -137,7 +137,7 @@ public class TaskService {
                 predicates.add(cb.equal(root.get("assistant").get("id"), assignedTo));
             }
 
-            // ── Filter theo MANAGAKA giao việc ──
+            // ── Filter theo MANGAKA giao việc ──
             // Nếu client gửi "assignedBy=2" → WHERE assignedBy.id = 2
             if (assignedBy != null) {
                 predicates.add(cb.equal(root.get("assignedBy").get("id"), assignedBy));
@@ -178,7 +178,7 @@ public class TaskService {
             if ("ASSISTANT".equals(role)) {
                 predicates.add(cb.equal(root.get("assistant").get("id"), user.getUserId()));
             }
-            // MANAGAKA: chỉ thấy task mình giao (assignedBy = currentUserId)
+            // MANGAKA: chỉ thấy task mình giao (assignedBy = currentUserId)
             else if ("MANGAKA".equals(role)) {
                 predicates.add(cb.equal(root.get("assignedBy").get("id"), user.getUserId()));
             }
@@ -250,7 +250,7 @@ public class TaskService {
      * <p>
      * 📌 Role-based:
      *    - ASSISTANT: chỉ thấy task của mình trong region này
-     *    - MANAGAKA:  chỉ thấy task mình giao trong region này
+     *    - MANGAKA:  chỉ thấy task mình giao trong region này
      *    - EDITOR:    thấy tất cả task trong region này
      *
      * @param regionId ID của region
@@ -279,7 +279,7 @@ public class TaskService {
                         return task.getAssistant() != null
                                 && task.getAssistant().getId().equals(user.getUserId());
                     } else if ("MANGAKA".equals(role)) {
-                        // MANAGAKA: chỉ thấy task mình giao
+                        // MANGAKA: chỉ thấy task mình giao
                         return task.getAssignedBy().getId().equals(user.getUserId());
                     }
                     // TANTOU_EDITOR / EDITORIAL_BOARD: thấy tất cả
@@ -300,7 +300,7 @@ public class TaskService {
     /**
      * POST /api/regions/{regionId}/tasks
      * <p>
-     * MANAGAKA tạo task mới và gán cho 1 ASSISTANT.
+     * MANGAKA tạo task mới và gán cho 1 ASSISTANT.
      * Hệ thống tự động copy pageImageUrl từ region → page sang task.
      * <p>
      * 📌 Quy trình:
@@ -313,7 +313,7 @@ public class TaskService {
      *
      * @param regionId    ID của region cần giao việc
      * @param request     DTO từ frontend (title bắt buộc, assistantId bắt buộc)
-     * @param currentUser User đang đăng nhập (MANAGAKA)
+     * @param currentUser User đang đăng nhập (MANGAKA)
      * @return TaskResponse — task vừa tạo
      * @throws AppException 404 — nếu region hoặc user không tồn tại
      * @throws AppException 400 — nếu user không phải ASSISTANT hoặc dueDate ở quá khứ
@@ -394,7 +394,7 @@ public class TaskService {
      *    - Nếu gửi dueDate mới → cập nhật
      *    - Các field không gửi (null) → giữ nguyên giá trị cũ
      * <p>
-     * 📌 Chỉ MANAGAKA mới được gọi (kiểm tra ở Controller).
+     * 📌 Chỉ MANGAKA mới được gọi (kiểm tra ở Controller).
      *
      * @param id          ID của task cần sửa
      * @param request     DTO chứa các field muốn thay đổi (null = giữ nguyên)
@@ -489,7 +489,7 @@ public class TaskService {
      * Chuyển trạng thái task theo state machine:
      * <pre>
      *  TODO → IN_PROGRESS : ASSISTANT nhận việc
-     *  IN_PROGRESS → REJECTED : MANAGAKA từ chối
+     *  IN_PROGRESS → REJECTED : MANGAKA từ chối
      *  REJECTED → IN_PROGRESS : ASSISTANT làm lại
      * </pre>
      * <p>
@@ -524,7 +524,7 @@ public class TaskService {
                         "Only the assigned assistant can start this task");
             }
         }
-        // IN_PROGRESS → REJECTED: chỉ MANAGAKA (người giao)
+        // IN_PROGRESS → REJECTED: chỉ MANGAKA (người giao)
         else if (currentStatus == TaskStatus.IN_PROGRESS && newStatus == TaskStatus.REJECTED) {
             if (!task.getAssignedBy().getId().equals(currentUser.getUserId())) {
                 throw new AppException(HttpStatus.FORBIDDEN,
@@ -700,13 +700,13 @@ public class TaskService {
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 10. REVIEW SUBMISSION — MANAGAKA duyệt bài
+    // 10. REVIEW SUBMISSION — MANGAKA duyệt bài
     // ════════════════════════════════════════════════════════════════
 
     /**
      * PATCH /api/submissions/{id}/status
      * <p>
-     * MANAGAKA duyệt bài nộp của ASSISTANT.
+     * MANGAKA duyệt bài nộp của ASSISTANT.
      * <p>
      * 📌 Hành vi theo trạng thái duyệt:
      * <pre>
@@ -715,16 +715,16 @@ public class TaskService {
      * </pre>
      * <p>
      * 📌 Điều kiện:
-     *    - User phải là MANAGAKA đã tạo task này
+     *    - User phải là MANGAKA đã tạo task này
      *    - Submission phải đang ở trạng thái SUBMITTED
      *    - Chỉ chấp nhận APPROVED hoặc REVISION_REQUIRED
      *
      * @param submissionId ID của submission cần duyệt
      * @param newStatus    Trạng thái duyệt: APPROVED hoặc REVISION_REQUIRED
-     * @param currentUser  User đang đăng nhập (MANAGAKA)
+     * @param currentUser  User đang đăng nhập (MANGAKA)
      * @return TaskSubmissionResponse — submission sau khi duyệt
      * @throws AppException 404 — nếu submission không tồn tại
-     * @throws AppException 403 — nếu user không phải MANAGAKA tạo task
+     * @throws AppException 403 — nếu user không phải MANGAKA tạo task
      * @throws AppException 400 — nếu submission không ở SUBMITTED hoặc status không hợp lệ
      */
     public TaskSubmissionResponse reviewSubmission(Long submissionId,
@@ -738,7 +738,7 @@ public class TaskService {
         Task task = submission.getTask();
 
         // ── Bước 2: Kiểm tra quyền ──
-        // Chỉ MANAGAKA đã tạo task mới duyệt được
+        // Chỉ MANGAKA đã tạo task mới duyệt được
         if (!task.getAssignedBy().getId().equals(currentUser.getUserId())) {
             throw new AppException(HttpStatus.FORBIDDEN,
                     "Only the task creator can review submissions");
@@ -784,17 +784,17 @@ public class TaskService {
     /**
      * POST /api/tasks/{taskId}/attachments
      * <p>
-     * MANAGAKA đính kèm file tham khảo (ảnh mẫu, tài liệu) cho task.
+     * MANGAKA đính kèm file tham khảo (ảnh mẫu, tài liệu) cho task.
      * <p>
-     * 📌 Chỉ MANAGAKA tạo task mới được thêm attachment.
-     *    (Hoặc có thể mở rộng: bất kỳ MANAGAKA nào cũng được — tuỳ config)
+     * 📌 Chỉ MANGAKA tạo task mới được thêm attachment.
+     *    (Hoặc có thể mở rộng: bất kỳ MANGAKA nào cũng được — tuỳ config)
      *
      * @param taskId      ID của task
      * @param request     DTO chứa fileUrl
      * @param currentUser User đang đăng nhập
      * @return TaskAttachmentResponse — attachment vừa tạo
      * @throws AppException 404 — nếu task không tồn tại
-     * @throws AppException 403 — nếu không phải MANAGAKA tạo task
+     * @throws AppException 403 — nếu không phải MANGAKA tạo task
      */
     public TaskAttachmentResponse addAttachment(Long taskId, AttachmentRequest request,
                                                   CustomUserDetails currentUser) {
@@ -804,7 +804,7 @@ public class TaskService {
                         "Task not found: " + taskId));
 
         // ── Bước 2: Kiểm tra quyền ──
-        // Chỉ MANAGAKA tạo task mới được thêm attachment
+        // Chỉ MANGAKA tạo task mới được thêm attachment
         if (!task.getAssignedBy().getId().equals(currentUser.getUserId())) {
             throw new AppException(HttpStatus.FORBIDDEN,
                     "Only the task creator can add attachments");
@@ -834,7 +834,7 @@ public class TaskService {
      * <p>
      * Xoá file đính kèm khỏi task.
      * <p>
-     * 📌 Chỉ MANAGAKA mới được xoá attachment.
+     * 📌 Chỉ MANGAKA mới được xoá attachment.
      *    (Role check ở Controller)
      *
      * @param id ID của attachment cần xoá

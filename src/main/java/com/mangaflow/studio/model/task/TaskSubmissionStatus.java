@@ -7,9 +7,9 @@ package com.mangaflow.studio.model.task;
  * ═══════════════════════════════════════════════════════════════
  *  Các trạng thái:
  * ═══════════════════════════════════════════════════════════════
- *  SUBMITTED         → ASSISTANT vừa nộp, đang chờ MANAGAKA duyệt
- *  APPROVED          → MANAGAKA chấp nhận bài nộp (task → DONE)
- *  REVISION_REQUIRED → MANAGAKA yêu cầu sửa (task → IN_PROGRESS)
+ *  SUBMITTED         → ASSISTANT vừa nộp, đang chờ MANGAKA duyệt
+ *  APPROVED          → MANGAKA chấp nhận bài nộp (task → DONE)
+ *  REVISION_REQUIRED → MANGAKA yêu cầu sửa (task → IN_PROGRESS)
  * <p>
  * 📌 Không có REJECTED ở cấp submission vì:
  *    - REJECTED là trạng thái của task (từ chối toàn bộ)

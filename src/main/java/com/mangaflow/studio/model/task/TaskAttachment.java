@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
  * ── TaskAttachment Entity ──
  * Ánh xạ tới bảng "task_attachments" trong database.
  * Mỗi TaskAttachment là 1 file tham khảo (ảnh mẫu, tài liệu hướng dẫn)
- * mà MANAGAKA đính kèm vào task để ASSISTANT tham khảo trước khi làm.
+ * mà MANGAKA đính kèm vào task để ASSISTANT tham khảo trước khi làm.
  * <p>
  * 📌 @Entity: JPA entity → Hibernate tạo bảng "task_attachments"
  * <p>
@@ -59,7 +59,7 @@ public class TaskAttachment {
      * fileUrl: URL của file đính kèm (trên Cloudinary).
      * NOT NULL — bắt buộc, max 500 ký tự.
      * <p>
-     * 📌 MANAGAKA upload file lên Cloudinary và gửi URL.
+     * 📌 MANGAKA upload file lên Cloudinary và gửi URL.
      *    File này có thể là ảnh, PSD, PDF,...
      */
     @Column(name = "file_url", nullable = false, length = 500)

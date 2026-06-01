@@ -19,7 +19,7 @@ package com.mangaflow.studio.model.region;
  * ══════════════════════════════════════════════════════════════
  * <p>
  * 📌 Mỗi regionType gắn với 1 màu sắc riêng trên canvas
- *    để MANAGAKA dễ phân biệt khi vẽ region.
+ *    để MANGAKA dễ phân biệt khi vẽ region.
  */
 public enum RegionType {
     BACKGROUND,

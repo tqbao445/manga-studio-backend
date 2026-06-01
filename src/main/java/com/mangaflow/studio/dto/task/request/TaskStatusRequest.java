@@ -25,7 +25,7 @@ public class TaskStatusRequest {
      * <p>
      * Giá trị hợp lệ (tuỳ role và trạng thái hiện tại):
      *    - ASSISTANT: TODO → IN_PROGRESS, REJECTED → IN_PROGRESS
-     *    - MANAGAKA:  IN_PROGRESS → REJECTED
+     *    - MANGAKA:  IN_PROGRESS → REJECTED
      */
     @NotNull(message = "Status is required")
     @Schema(description = "Trạng thái mới", example = "IN_PROGRESS", requiredMode = Schema.RequiredMode.REQUIRED)

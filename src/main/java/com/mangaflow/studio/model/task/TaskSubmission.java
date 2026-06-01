@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
  *  Luồng nộp bài:
  * ══════════════════════════════════════════════════════════════════
  *  1. ASSISTANT nộp bài → status = SUBMITTED, version tự động tăng
- *  2. MANAGAKA duyệt:
+ *  2. MANGAKA duyệt:
  *     - APPROVED          → submission hoàn thành, task → DONE
  *     - REVISION_REQUIRED → submission yêu cầu sửa, task → IN_PROGRESS
  *  3. ASSISTANT sửa xong → nộp lại → version + 1
@@ -28,7 +28,7 @@ import java.time.LocalDateTime;
  *    - Version 2: lần sửa thứ 1
  *    - Version N: lần sửa thứ N-1
  *    - Mỗi task có thể có nhiều submissions, mỗi submission có 1 version
- *    - Các submissions cũ vẫn được giữ lại để MANAGAKA so sánh
+ *    - Các submissions cũ vẫn được giữ lại để MANGAKA so sánh
  */
 @Entity
 @Table(name = "task_submissions")
@@ -65,7 +65,7 @@ public class TaskSubmission {
      * NOT NULL — bắt buộc, max 500 ký tự.
      * <p>
      * 📌 ASSISTANT upload ảnh kết quả lên Cloudinary và gửi URL.
-     *    MANAGAKA xem ảnh này để đánh giá chất lượng.
+     *    MANGAKA xem ảnh này để đánh giá chất lượng.
      */
     @Column(name = "result_image_url", nullable = false, length = 500)
     private String resultImageUrl;
@@ -74,14 +74,14 @@ public class TaskSubmission {
      * fileUrl: URL file nguồn (PSD, CLIP, ...).
      * NULLABLE — không bắt buộc, max 500 ký tự.
      * <p>
-     * 📌 ASSISTANT có thể gửi file gốc để MANAGAKA kiểm tra layer.
+     * 📌 ASSISTANT có thể gửi file gốc để MANGAKA kiểm tra layer.
      *    File này thường lớn, không hiển thị trực tiếp trên web.
      */
     @Column(name = "file_url", length = 500)
     private String fileUrl;
 
     /**
-     * note: Ghi chú của ASSISTANT cho MANAGAKA.
+     * note: Ghi chú của ASSISTANT cho MANGAKA.
      * NULLABLE — không bắt buộc.
      * <p>
      * VD: "Đã vẽ xong nhân vật chính, anh xem giúp em"

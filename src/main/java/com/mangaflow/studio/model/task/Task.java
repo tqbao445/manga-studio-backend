@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * ── Task Entity ──
  * Ánh xạ tới bảng "tasks" trong database.
- * Mỗi Task là 1 công việc MANAGAKA giao cho ASSISTANT,
+ * Mỗi Task là 1 công việc MANGAKA giao cho ASSISTANT,
  * gắn với 1 region cụ thể trên 1 page.
  * <p>
  * 📌 @Entity: JPA entity → Hibernate tạo bảng "tasks"
@@ -20,20 +20,20 @@ import java.util.List;
  * 📌 Quan hệ:
  *    - Region (N:1): task thuộc về region nào
  *    - User.assistant (N:1): ai được giao làm
- *    - User.assignedBy (N:1): ai giao việc (MANAGAKA)
+ *    - User.assignedBy (N:1): ai giao việc (MANGAKA)
  *    - TaskSubmission (1:N): lịch sử nộp bài
  *    - TaskAttachment (1:N): file đính kèm tham khảo
  * <p>
  * ══════════════════════════════════════════════════════════════════
  *  Luồng đời sống (Lifecycle):
  * ══════════════════════════════════════════════════════════════════
- *  1. MANAGAKA tạo task → status = TODO
+ *  1. MANGAKA tạo task → status = TODO
  *  2. ASSISTANT nhận → status = IN_PROGRESS
  *  3. ASSISTANT nộp bài → submission được tạo (status không đổi)
- *  4. MANAGAKA duyệt:
+ *  4. MANGAKA duyệt:
  *     - APPROVED         → task → DONE
  *     - REVISION_REQUIRED → task → IN_PROGRESS (sửa lại)
- *  5. MANAGAKA có thể từ chối giữa chừng → REJECTED
+ *  5. MANGAKA có thể từ chối giữa chừng → REJECTED
  *  6. ASSISTANT làm lại task REJECTED → IN_PROGRESS
  */
 @Entity
@@ -106,7 +106,7 @@ public class Task {
 
     /**
      * referenceImageUrl: URL ảnh tham khảo.
-     * MANAGAKA có thể đính kèm 1 ảnh mẫu cho ASSISTANT tham khảo.
+     * MANGAKA có thể đính kèm 1 ảnh mẫu cho ASSISTANT tham khảo.
      * NULLABLE — không bắt buộc.
      */
     private String referenceImageUrl;
@@ -159,7 +159,7 @@ public class Task {
     private User assistant;
 
     /**
-     * assignedBy: Người giao việc (MANAGAKA).
+     * assignedBy: Người giao việc (MANGAKA).
      * N:1 với User — NOT NULL.
      * <p>
      * 📌 Luôn là user đang đăng nhập khi tạo task.
