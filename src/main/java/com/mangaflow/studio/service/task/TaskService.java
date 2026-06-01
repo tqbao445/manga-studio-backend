@@ -8,6 +8,7 @@ import com.mangaflow.studio.dto.task.mapper.TaskSubmissionMapper;
 import com.mangaflow.studio.dto.task.request.AttachmentRequest;
 import com.mangaflow.studio.dto.task.request.TaskRequest;
 import com.mangaflow.studio.dto.task.request.TaskSubmissionRequest;
+import com.mangaflow.studio.dto.task.request.TaskUpdateRequest;
 import com.mangaflow.studio.dto.task.response.TaskAttachmentResponse;
 import com.mangaflow.studio.dto.task.response.TaskResponse;
 import com.mangaflow.studio.dto.task.response.TaskSubmissionResponse;
@@ -26,7 +27,9 @@ import com.mangaflow.studio.repository.task.TaskSubmissionRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -119,7 +122,13 @@ public class TaskService {
     public Page<TaskResponse> getTasks(
             TaskStatus status, Long assignedTo, Long assignedBy,
             Priority priority, Long regionId, Long seriesId,
-            Pageable pageable, CustomUserDetails user) {
+            int page, int size, String sortBy, String sortDir,
+            CustomUserDetails user) {
+
+        Sort sort = sortDir.equalsIgnoreCase("asc")
+                ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
 
         // ── Build Specification động ──
         Specification<Task> spec = (root, query, cb) -> {
@@ -403,7 +412,7 @@ public class TaskService {
      * @throws AppException 404 — nếu không tìm thấy task
      * @throws AppException 400 — nếu task không ở TODO/REJECTED
      */
-    public TaskResponse updateTask(Long id, TaskRequest request, CustomUserDetails currentUser) {
+    public TaskResponse updateTask(Long id, TaskUpdateRequest request, CustomUserDetails currentUser) {
         // ── Bước 1: Tìm task ──
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,

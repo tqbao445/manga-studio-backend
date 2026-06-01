@@ -6,6 +6,7 @@ import com.mangaflow.studio.dto.task.request.SubmissionStatusRequest;
 import com.mangaflow.studio.dto.task.request.TaskRequest;
 import com.mangaflow.studio.dto.task.request.TaskStatusRequest;
 import com.mangaflow.studio.dto.task.request.TaskSubmissionRequest;
+import com.mangaflow.studio.dto.task.request.TaskUpdateRequest;
 import com.mangaflow.studio.dto.task.response.TaskAttachmentResponse;
 import com.mangaflow.studio.dto.task.response.TaskResponse;
 import com.mangaflow.studio.dto.task.response.TaskSubmissionResponse;
@@ -21,9 +22,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -116,15 +114,25 @@ public class TaskController {
             @Parameter(description = "Lọc theo series ID (join region → page → chapter → series)")
             @RequestParam(required = false) Long seriesId,
 
-            @Parameter(description = "Thông tin phân trang")
-            @PageableDefault(size = 20, sort = "assignedAt", direction = Sort.Direction.DESC)
-            Pageable pageable,
+            @Parameter(description = "Số trang (bắt đầu từ 0)")
+            @RequestParam(defaultValue = "0") int page,
+
+            @Parameter(description = "Số lượng mỗi trang (tối đa 100)")
+            @RequestParam(defaultValue = "20") int size,
+
+            @Parameter(description = "Field sắp xếp: assignedAt, priority, dueDate, status,...")
+            @RequestParam(defaultValue = "assignedAt") String sortBy,
+
+            @Parameter(description = "Hướng sắp xếp: asc hoặc desc")
+            @RequestParam(defaultValue = "desc") String sortDir,
 
             @AuthenticationPrincipal CustomUserDetails user) {
 
+        if (size > 100) size = 100;
+
         Page<TaskResponse> result = taskService.getTasks(
                 status, assignedTo, assignedBy, priority, regionId, seriesId,
-                pageable, user);
+                page, size, sortBy, sortDir, user);
 
         return ResponseEntity.ok(result);
     }
@@ -239,7 +247,7 @@ public class TaskController {
             @PathVariable Long id,
 
             @Parameter(description = "Thông tin task cần cập nhật (field null = giữ nguyên)")
-            @Valid @RequestBody TaskRequest request,
+            @RequestBody TaskUpdateRequest request,
 
             @AuthenticationPrincipal CustomUserDetails user) {
 
