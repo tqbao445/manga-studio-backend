@@ -59,7 +59,3 @@ application-dev.yml
 .env
 docker-compose.override.yml
 
-### Config (chứa secret, không commit) ###
-application.properties
-application-*.properties
-application.yml
