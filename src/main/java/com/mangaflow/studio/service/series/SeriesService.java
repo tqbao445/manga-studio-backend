@@ -250,7 +250,11 @@ public class SeriesService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Series not found or not owned by you"));
 
-        // Bước 2: Xử lý ảnh bìa (nếu có)
+        // Bước 2: MapStruct null-safe update các field JSON khác (title, genre, ...)
+        // Làm trước để tránh request.coverImageUrl ghi đè URL mới từ Cloudinary
+        seriesMapper.updateEntity(series, request);
+
+        // Bước 3: Xử lý ảnh bìa (nếu có) — ưu tiên ghi đè coverImageUrl sau cùng
         if (file != null && !file.isEmpty()) {
             // ── Trường hợp 2: Có file → đổi ảnh bìa mới ──
             // Xoá ảnh cũ trên Cloudinary nếu có
@@ -268,9 +272,6 @@ public class SeriesService {
             series.setCoverImageUrl(null);
         }
         // ── Trường hợp 1: không có file, coverImageUrl null → giữ nguyên ──
-
-        // Bước 3: MapStruct null-safe update các field JSON khác (title, genre, ...)
-        seriesMapper.updateEntity(series, request);
 
         // Bước 4: Save → map sang DTO → trả về
         return seriesMapper.toResponse(seriesRepository.save(series));
