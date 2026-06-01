@@ -66,7 +66,7 @@ public class TaskResponse {
     @Schema(description = "ASSISTANT được giao")
     private UserBasicDTO assistant;
 
-    @Schema(description = "MANAGAKA giao việc")
+    @Schema(description = "MANGAKA giao việc")
     private UserBasicDTO assignedBy;
 
     @Schema(description = "Thời điểm giao việc", example = "2026-05-30T10:00:00")

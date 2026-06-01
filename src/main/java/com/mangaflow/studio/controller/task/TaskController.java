@@ -50,15 +50,15 @@ import java.util.List;
  *  │ 1    │ GET    │ /api/tasks             │ Danh sách tasks     │ Authenticated    │
  *  │ 2    │ GET    │ /api/tasks/{id}        │ Chi tiết task       │ Authenticated    │
  *  │ 3    │ GET    │ /api/regions/{rid}/tasks │ Tasks của region │ Authenticated    │
- *  │ 4    │ POST   │ /api/regions/{rid}/tasks │ Tạo task mới     │ MANAGAKA         │
- *  │ 5    │ PUT    │ /api/tasks/{id}        │ Cập nhật task       │ MANAGAKA         │
- *  │ 6    │ PATCH  │ /api/tasks/{id}/status │ Đổi trạng thái      │ MANAGAKA/ASSIST  │
- *  │ 7    │ DELETE │ /api/tasks/{id}        │ Xoá task            │ MANAGAKA         │
+ *  │ 4    │ POST   │ /api/regions/{rid}/tasks │ Tạo task mới     │ MANGAKA         │
+ *  │ 5    │ PUT    │ /api/tasks/{id}        │ Cập nhật task       │ MANGAKA         │
+ *  │ 6    │ PATCH  │ /api/tasks/{id}/status │ Đổi trạng thái      │ MANGAKA/ASSIST  │
+ *  │ 7    │ DELETE │ /api/tasks/{id}        │ Xoá task            │ MANGAKA         │
  *  │ 8    │ GET    │ /api/tasks/{tid}/submissions │ Lịch sử nộp  │ Authenticated    │
  *  │ 9    │ POST   │ /api/tasks/{tid}/submissions │ Nộp bài      │ ASSISTANT        │
- *  │ 10   │ PATCH  │ /api/submissions/{id}/status │ Duyệt bài    │ MANAGAKA         │
- *  │ 11   │ POST   │ /api/tasks/{tid}/attachments │ Đính kèm file│ MANAGAKA         │
- *  │ 12   │ DELETE │ /api/attachments/{id}        │ Xoá file     │ MANAGAKA         │
+ *  │ 10   │ PATCH  │ /api/submissions/{id}/status │ Duyệt bài    │ MANGAKA         │
+ *  │ 11   │ POST   │ /api/tasks/{tid}/attachments │ Đính kèm file│ MANGAKA         │
+ *  │ 12   │ DELETE │ /api/attachments/{id}        │ Xoá file     │ MANGAKA         │
  *  └──────┴────────┴────────────────────────┴──────────────────────┴──────────────────┘
  */
 @RestController
@@ -90,7 +90,7 @@ public class TaskController {
     @Operation(summary = "Lấy danh sách tasks",
             description = "Trả về danh sách tasks với filter & phân trang. "
                     + "ASSISTANT tự động chỉ thấy task của mình. "
-                    + "MANAGAKA tự động chỉ thấy task mình giao.")
+                    + "MANGAKA tự động chỉ thấy task mình giao.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Danh sách tasks (phân trang)"),
             @ApiResponse(responseCode = "401", description = "Chưa đăng nhập")
@@ -188,11 +188,11 @@ public class TaskController {
     /**
      * POST /api/regions/{regionId}/tasks
      * <p>
-     * MANAGAKA tạo task mới và gán cho 1 ASSISTANT.
+     * MANGAKA tạo task mới và gán cho 1 ASSISTANT.
      * Tự động copy pageImageUrl từ region → page.
      */
     @Operation(summary = "Tạo task mới",
-            description = "MANAGAKA tạo task mới gắn với 1 region và gán cho ASSISTANT. "
+            description = "MANGAKA tạo task mới gắn với 1 region và gán cho ASSISTANT. "
                     + "Hệ thống tự động copy pageImageUrl từ region sang task.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Task đã tạo"),
@@ -200,7 +200,7 @@ public class TaskController {
             @ApiResponse(responseCode = "404", description = "Region hoặc user không tồn tại")
     })
     @PostMapping("/regions/{regionId}/tasks")
-    @PreAuthorize("hasRole('MANAGAKA')")
+    @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<TaskResponse> createTask(
             @Parameter(description = "ID của region cần giao việc", example = "10")
             @PathVariable Long regionId,
@@ -233,7 +233,7 @@ public class TaskController {
             @ApiResponse(responseCode = "404", description = "Task không tồn tại")
     })
     @PutMapping("/tasks/{id}")
-    @PreAuthorize("hasRole('MANAGAKA')")
+    @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<TaskResponse> updateTask(
             @Parameter(description = "ID của task", example = "1")
             @PathVariable Long id,
@@ -253,14 +253,14 @@ public class TaskController {
     /**
      * PATCH /api/tasks/{id}/status
      * <p>
-     * Chuyển trạng thái task. ASSISTANT nhận task, MANAGAKA từ chối.
+     * Chuyển trạng thái task. ASSISTANT nhận task, MANGAKA từ chối.
      * <p>
      * Không hỗ trợ IN_PROGRESS → DONE (dùng submission + review).
      */
     @Operation(summary = "Đổi trạng thái task",
             description = "Chuyển trạng thái task. "
                     + "TODO → IN_PROGRESS (ASSISTANT), "
-                    + "IN_PROGRESS → REJECTED (MANAGAKA), "
+                    + "IN_PROGRESS → REJECTED (MANGAKA), "
                     + "REJECTED → IN_PROGRESS (ASSISTANT). "
                     + "(Không hỗ trợ IN_PROGRESS → DONE — dùng submission + review)")
     @ApiResponses({
@@ -270,7 +270,7 @@ public class TaskController {
             @ApiResponse(responseCode = "404", description = "Task không tồn tại")
     })
     @PatchMapping("/tasks/{id}/status")
-    @PreAuthorize("hasAnyRole('MANAGAKA', 'ASSISTANT')")
+    @PreAuthorize("hasAnyRole('MANGAKA', 'ASSISTANT')")
     public ResponseEntity<TaskResponse> updateTaskStatus(
             @Parameter(description = "ID của task", example = "1")
             @PathVariable Long id,
@@ -302,7 +302,7 @@ public class TaskController {
             @ApiResponse(responseCode = "404", description = "Task không tồn tại")
     })
     @DeleteMapping("/tasks/{id}")
-    @PreAuthorize("hasRole('MANAGAKA')")
+    @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<Void> deleteTask(
             @Parameter(description = "ID của task cần xoá", example = "1")
             @PathVariable Long id) {
@@ -373,27 +373,27 @@ public class TaskController {
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 10. REVIEW SUBMISSION — MANAGAKA duyệt bài
+    // 10. REVIEW SUBMISSION — MANGAKA duyệt bài
     // ════════════════════════════════════════════════════════════════
 
     /**
      * PATCH /api/submissions/{id}/status
      * <p>
-     * MANAGAKA duyệt bài nộp.
+     * MANGAKA duyệt bài nộp.
      * APPROVED → task DONE. REVISION_REQUIRED → task IN_PROGRESS.
      */
     @Operation(summary = "Duyệt bài nộp",
-            description = "MANAGAKA duyệt bài nộp của ASSISTANT. "
+            description = "MANGAKA duyệt bài nộp của ASSISTANT. "
                     + "APPROVED → task đánh dấu DONE. "
                     + "REVISION_REQUIRED → task quay về IN_PROGRESS để ASSISTANT sửa.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Bài nộp đã duyệt"),
             @ApiResponse(responseCode = "400", description = "Submission không ở SUBMITTED hoặc status không hợp lệ"),
-            @ApiResponse(responseCode = "403", description = "Bạn không phải MANAGAKA tạo task này"),
+            @ApiResponse(responseCode = "403", description = "Bạn không phải MANGAKA tạo task này"),
             @ApiResponse(responseCode = "404", description = "Submission không tồn tại")
     })
     @PatchMapping("/submissions/{id}/status")
-    @PreAuthorize("hasRole('MANAGAKA')")
+    @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<TaskSubmissionResponse> reviewSubmission(
             @Parameter(description = "ID của submission cần duyệt", example = "1")
             @PathVariable Long id,
@@ -414,17 +414,17 @@ public class TaskController {
     /**
      * POST /api/tasks/{taskId}/attachments
      * <p>
-     * MANAGAKA đính kèm file tham khảo cho task.
+     * MANGAKA đính kèm file tham khảo cho task.
      */
     @Operation(summary = "Đính kèm file tham khảo",
-            description = "MANAGAKA đính kèm file tham khảo (ảnh mẫu, tài liệu) cho task.")
+            description = "MANGAKA đính kèm file tham khảo (ảnh mẫu, tài liệu) cho task.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "File đã đính kèm"),
-            @ApiResponse(responseCode = "403", description = "Bạn không phải MANAGAKA tạo task này"),
+            @ApiResponse(responseCode = "403", description = "Bạn không phải MANGAKA tạo task này"),
             @ApiResponse(responseCode = "404", description = "Task không tồn tại")
     })
     @PostMapping("/tasks/{taskId}/attachments")
-    @PreAuthorize("hasRole('MANAGAKA')")
+    @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<TaskAttachmentResponse> addAttachment(
             @Parameter(description = "ID của task", example = "1")
             @PathVariable Long taskId,
@@ -454,7 +454,7 @@ public class TaskController {
             @ApiResponse(responseCode = "404", description = "Attachment không tồn tại")
     })
     @DeleteMapping("/attachments/{id}")
-    @PreAuthorize("hasRole('MANAGAKA')")
+    @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<Void> deleteAttachment(
             @Parameter(description = "ID của attachment cần xoá", example = "1")
             @PathVariable Long id) {

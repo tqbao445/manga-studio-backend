@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
  * Ánh xạ tới bảng "region" trong database.
  * Mỗi Region là 1 vùng được đánh dấu trên page,
  * tương ứng với 1 thành phần (background, nhân vật, chữ, hiệu ứng...)
- * mà MANAGAKA muốn giao cho ASSISTANT vẽ.
+ * mà MANGAKA muốn giao cho ASSISTANT vẽ.
  * <p>
  * 📌 @Entity: Đánh dấu class này là 1 JPA entity
  *    → Hibernate tự động tạo/làm việc với bảng "region"

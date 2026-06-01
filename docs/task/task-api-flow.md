@@ -83,7 +83,7 @@ Trình duyệt/FE                    Backend
     │                                   │  │         │  │ - region.id IN (seriesFilter) (nếu) │
     │                                   │  │         │  │ - ROLE-based filter:                 │
     │                                   │  │         │  │   ASSISTANT → assistant.id = me     │
-    │                                   │  │         │  │   MANAGAKA → assignedBy.id = me     │
+    │                                   │  │         │  │   MANGAKA → assignedBy.id = me     │
     │                                   │  │         │  └────────────────────────────────────┘
     │                                   │  │         │  Kết quả: WHERE status=? AND ... AND ...
     │                                   │  │         │
@@ -261,7 +261,7 @@ Lấy tasks của 1 region (dùng trong workspace).
     │  │         │  tasks.stream().filter(task → {
     │  │         │      if (role == ASSISTANT)
     │  │         │          return task.assistant.id == currentUser.id
-    │  │         │      if (role == MANAGAKA)
+    │  │         │      if (role == MANGAKA)
     │  │         │          return task.assignedBy.id == currentUser.id
     │  │         │      return true  // EDITOR thấy tất cả
     │  │         │  })
@@ -284,7 +284,7 @@ Lấy tasks của 1 region (dùng trong workspace).
 ## 4. POST /api/regions/{regionId}/tasks
 
 ### Mục đích
-MANAGAKA tạo task mới, gán cho ASSISTANT.
+MANGAKA tạo task mới, gán cho ASSISTANT.
 
 ### Luồng chi tiết
 
@@ -301,8 +301,8 @@ MANAGAKA tạo task mới, gán cho ASSISTANT.
     │──────────────────────────────────▶ │
     │                                   │
     │  ┌─── [TaskController.createTask()]
-    │  │  @PreAuthorize("hasRole('MANAGAKA')")
-    │  │  Nếu role ≠ MANAGAKA → 403 Forbidden
+    │  │  @PreAuthorize("hasRole('MANGAKA')")
+    │  │  Nếu role ≠ MANGAKA → 403 Forbidden
     │  │
     │  │  @Valid @RequestBody TaskRequest
     │  │  Spring Validator kiểm tra:
@@ -403,7 +403,7 @@ Cập nhật task. Chỉ sửa được khi TODO hoặc REJECTED.
     │──────────────────────────────────▶ │
     │                                   │
     │  ┌─── [TaskController.updateTask()]
-    │  │  @PreAuthorize("hasRole('MANAGAKA')")
+    │  │  @PreAuthorize("hasRole('MANGAKA')")
     │  │
     │  │  Gọi TaskService.updateTask(1, request, user)
     │  │─────────────────▶
@@ -469,7 +469,7 @@ Chuyển trạng thái task (state machine).
     │──────────────────────────────────▶ │
     │                                   │
     │  ┌─── [TaskController.updateTaskStatus()]
-    │  │  @PreAuthorize("hasAnyRole('MANAGAKA', 'ASSISTANT')")
+    │  │  @PreAuthorize("hasAnyRole('MANGAKA', 'ASSISTANT')")
     │  │
     │  │  @Valid → TaskStatusRequest.status != null
     │  │
@@ -533,7 +533,7 @@ Chuyển trạng thái task (state machine).
     │ Xoá được│       │                                              │
     └───────┘       │                                              │
                     │                                              │
-                    │                                    MANAGAKA từ chối
+                    │                                    MANGAKA từ chối
                     │                                 (check: là người giao)
                     │                                              │
                     │                                              ▼
@@ -561,7 +561,7 @@ Xoá task. Chỉ xoá được TODO.
     │──────────────────────────────────▶ │
     │                                   │
     │  ┌─── [TaskController.deleteTask()]
-    │  │  @PreAuthorize("hasRole('MANAGAKA')")
+    │  │  @PreAuthorize("hasRole('MANGAKA')")
     │  │
     │  │  Gọi TaskService.deleteTask(1)
     │  │─────────────────▶
@@ -743,7 +743,7 @@ task_submissions (sau 2 lần nộp)
 ## 10. PATCH /api/submissions/{id}/status
 
 ### Mục đích
-MANAGAKA duyệt bài nộp. Ảnh hưởng đến task status.
+MANGAKA duyệt bài nộp. Ảnh hưởng đến task status.
 
 ### Luồng chi tiết
 
@@ -754,7 +754,7 @@ MANAGAKA duyệt bài nộp. Ảnh hưởng đến task status.
     │──────────────────────────────────▶ │
     │                                   │
     │  ┌─── [TaskController.reviewSubmission()]
-    │  │  @PreAuthorize("hasRole('MANAGAKA')")
+    │  │  @PreAuthorize("hasRole('MANGAKA')")
     │  │
     │  │  Gọi TaskService.reviewSubmission(1, APPROVED, user)
     │  │─────────────────▶
@@ -837,7 +837,7 @@ tasks (sau duyệt)
 ## 11. POST /api/tasks/{taskId}/attachments
 
 ### Mục đích
-MANAGAKA đính kèm file tham khảo.
+MANGAKA đính kèm file tham khảo.
 
 ### Luồng chi tiết
 
@@ -848,7 +848,7 @@ MANAGAKA đính kèm file tham khảo.
     │──────────────────────────────────▶ │
     │                                   │
     │  ┌─── [TaskController.addAttachment()]
-    │  │  @PreAuthorize("hasRole('MANAGAKA')")
+    │  │  @PreAuthorize("hasRole('MANGAKA')")
     │  │
     │  │  Gọi TaskService.addAttachment(1, request, user)
     │  │─────────────────▶
@@ -904,7 +904,7 @@ Xoá file đính kèm.
     │──────────────────────────────────▶ │
     │                                   │
     │  ┌─── [TaskController.deleteAttachment()]
-    │  │  @PreAuthorize("hasRole('MANAGAKA')")
+    │  │  @PreAuthorize("hasRole('MANGAKA')")
     │  │
     │  │  Gọi TaskService.deleteAttachment(1)
     │  │─────────────────▶

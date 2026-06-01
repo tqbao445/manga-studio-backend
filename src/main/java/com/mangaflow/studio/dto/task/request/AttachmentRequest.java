@@ -7,7 +7,7 @@ import lombok.Data;
 
 /**
  * ── AttachmentRequest ──
- * DTO nhận dữ liệu từ frontend khi MANAGAKA đính kèm file tham khảo.
+ * DTO nhận dữ liệu từ frontend khi MANGAKA đính kèm file tham khảo.
  * <p>
  * 📌 Dùng ở:
  *    - POST /api/tasks/{taskId}/attachments (endpoint 11)
@@ -21,7 +21,7 @@ public class AttachmentRequest {
 
     /**
      * fileUrl: URL của file đính kèm (ảnh mẫu, tài liệu, ...).
-     * Bắt buộc — MANAGAKA phải upload file lên Cloudinary trước.
+     * Bắt buộc — MANGAKA phải upload file lên Cloudinary trước.
      */
     @NotBlank(message = "File URL is required")
     @Size(max = 500, message = "File URL must not exceed 500 characters")

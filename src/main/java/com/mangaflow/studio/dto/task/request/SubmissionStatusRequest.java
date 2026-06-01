@@ -7,7 +7,7 @@ import lombok.Data;
 
 /**
  * ── SubmissionStatusRequest ──
- * DTO nhận dữ liệu từ frontend khi MANAGAKA duyệt bài nộp.
+ * DTO nhận dữ liệu từ frontend khi MANGAKA duyệt bài nộp.
  * <p>
  * 📌 Dùng ở:
  *    - PATCH /api/submissions/{id}/status (endpoint 10)
@@ -19,7 +19,7 @@ import lombok.Data;
  *    - REVISION_REQUIRED:   Yêu cầu sửa lại → task IN_PROGRESS
  */
 @Data
-@Schema(description = "Request duyệt bài nộp của MANAGAKA")
+@Schema(description = "Request duyệt bài nộp của MANGAKA")
 public class SubmissionStatusRequest {
 
     /**
