@@ -16,9 +16,11 @@ import com.mangaflow.studio.model.auth.Role;
 import com.mangaflow.studio.model.auth.User;
 import com.mangaflow.studio.model.region.Region;
 import com.mangaflow.studio.model.task.*;
+import com.mangaflow.studio.model.series.InvitationStatus;
 import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.model.chapter.Chapter;
 import com.mangaflow.studio.repository.chapter.ChapterRepository;
+import com.mangaflow.studio.repository.series.SeriesAssistantRepository;
 import com.mangaflow.studio.repository.page.PageRepository;
 import com.mangaflow.studio.repository.region.RegionRepository;
 import com.mangaflow.studio.repository.task.TaskAttachmentRepository;
@@ -81,6 +83,8 @@ public class TaskService {
     private final PageRepository pageRepository;
 
     private final ChapterRepository chapterRepository;
+
+    private final SeriesAssistantRepository seriesAssistantRepository;
 
     private final TaskMapper taskMapper;
     private final TaskSubmissionMapper taskSubmissionMapper;
@@ -343,13 +347,39 @@ public class TaskService {
                     "User " + assistant.getUsername() + " is not an ASSISTANT");
         }
 
-        // ── Bước 3: Kiểm tra dueDate ở tương lai (nếu có) ──
+        // ── Bước 3: Kiểm tra assistant có trong series không ──
+        // Chỉ cho phép gán task cho assistant đã ACCEPTED trong series này.
+        // Chain: Region → pageId → Page → chapterId → Chapter → seriesId
+        Long seriesId = null;
+        if (region.getPageId() != null) {
+            com.mangaflow.studio.model.page.Page pageEntity = pageRepository
+                    .findById(region.getPageId()).orElse(null);
+            if (pageEntity != null && pageEntity.getChapterId() != null) {
+                Chapter chapter = chapterRepository
+                        .findById(pageEntity.getChapterId()).orElse(null);
+                if (chapter != null && chapter.getSeries() != null) {
+                    seriesId = chapter.getSeries().getId();
+                }
+            }
+        }
+
+        if (seriesId != null) {
+            boolean isMember = seriesAssistantRepository
+                    .existsBySeriesIdAndAssistantIdAndStatus(
+                            seriesId, assistant.getId(), InvitationStatus.ACCEPTED);
+            if (!isMember) {
+                throw new AppException(HttpStatus.BAD_REQUEST,
+                        "Assistant is not a member of this series");
+            }
+        }
+
+        // ── Bước 4: Kiểm tra dueDate ở tương lai (nếu có) ──
         if (request.getDueDate() != null && request.getDueDate().isBefore(LocalDateTime.now())) {
             throw new AppException(HttpStatus.BAD_REQUEST,
                     "Due date must be in the future");
         }
 
-        // ── Bước 4: Lấy pageImageUrl từ region → page ──
+        // ── Bước 5: Lấy pageImageUrl từ region → page ──
         // Region có pageId (Long), cần tìm Page để lấy webImageUrl
         String pageImageUrl = null;
         if (region.getPageId() != null) {
@@ -359,11 +389,11 @@ public class TaskService {
             }
         }
 
-        // ── Bước 5: Tìm User entity cho currentUser ──
+        // ── Bước 6: Tìm User entity cho currentUser ──
         User assignedBy = userRepository.findById(currentUser.getUserId())
                 .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        // ── Bước 6: Tạo Task entity ──
+        // ── Bước 7: Tạo Task entity ──
         Task task = Task.builder()
                 .region(region)
                 .title(request.getTitle())
@@ -382,10 +412,10 @@ public class TaskService {
                 .dueDate(request.getDueDate())
                 .build();
 
-        // ── Bước 7: Lưu vào database ──
+        // ── Bước 8: Lưu vào database ──
         Task savedTask = taskRepository.save(task);
 
-        // ── Bước 8: Map sang DTO và trả về ──
+        // ── Bước 9: Map sang DTO và trả về ──
         return taskMapper.toResponse(savedTask);
     }
 
