@@ -11,13 +11,17 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -62,6 +66,7 @@ import java.util.List;
 public class LayerController {
 
     private final LayerService layerService;
+    private final ObjectMapper objectMapper;
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET LAYERS BY PAGE — Lấy danh sách layers của 1 page
@@ -109,25 +114,36 @@ public class LayerController {
     // ════════════════════════════════════════════════════════════════
 
     @Operation(
-            summary = "Tạo layer mới",
+            summary = "Tạo layer mới (multipart: file + JSON fields)",
             description = "Tạo 1 layer mới trong page. Chỉ MANGAKA mới được tạo layer. " +
-                    "sortOrder tự động gán (max + 1), không cần gửi từ frontend."
+                    "sortOrder tự động gán (max + 1), không cần gửi từ frontend. " +
+                    "Gửi dạng multipart/form-data với key 'file' (ảnh) và 'request' (JSON). " +
+                    "Nếu không có file, có thể dùng JSON thuần (không multipart) với field fileUrl."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Layer đã tạo", content = @Content),
             @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ (label trống...)"),
             @ApiResponse(responseCode = "403", description = "Không có quyền (chỉ MANGAKA)")
     })
-    @PostMapping("/pages/{pageId}/layers")
+    @PostMapping(value = "/pages/{pageId}/layers",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<LayerResponse> createLayer(
             @Parameter(description = "ID của page", example = "1")
             @PathVariable Long pageId,
-            @Valid @RequestBody LayerRequest request,
+
+            @Parameter(description = "File ảnh layer (jpg, png, ...)")
+            @RequestParam("file") MultipartFile file,
+
+            @Parameter(description = "Thông tin layer (JSON string): {\"label\":\"...\",\"opacity\":0.8}")
+            @RequestParam("request") String requestJson,
+
             @Parameter(hidden = true)
-            @AuthenticationPrincipal CustomUserDetails currentUser) {
+            @AuthenticationPrincipal CustomUserDetails currentUser) throws JsonProcessingException {
+        // Parse JSON string → LayerRequest
+        LayerRequest request = objectMapper.readValue(requestJson, LayerRequest.class);
         LayerResponse response = layerService.createLayer(
-                pageId, request, currentUser.getUser());
+                pageId, request, currentUser.getUser(), file);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

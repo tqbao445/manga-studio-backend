@@ -416,7 +416,59 @@ public class PageController {
     }
 
     // ════════════════════════════════════════════════════════════════
-    // PRIVATE HELPER — Tạm thời xử lý seriesId
+    // 7. MERGE LAYERS — Composite layers → final image
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * POST /api/v1/pages/{id}/merge
+     * <p>
+     * 📌 Chức năng:
+     * Merge tất cả visible layers của 1 page thành 1 ảnh duy nhất.
+     * Kết quả upload lên Cloudinary, URL lưu vào page.finalImageUrl.
+     * <p>
+     * 📌 Quyền truy cập (hasRole('MANGAKA')):
+     * - Chỉ MANGAKA mới được merge layers
+     * <p>
+     * 📌 Quy trình backend:
+     *    1. Lấy page + layers (visible, có fileUrl)
+     *    2. Download ảnh nền (page.originalImageUrl)
+     *    3. Với mỗi layer: download ảnh → composite với opacity
+     *    4. Upload ảnh đã merge lên Cloudinary (overwrite)
+     *    5. Lưu URL merge vào page.finalImageUrl
+     * <p>
+     * 📌 Frontend gọi API này khi:
+     *    MANGAKA bấm nút "Merge & Export" trên workspace toolbar.
+     *    → Ảnh sau merge dùng để xuất file hoặc preview.
+     *
+     * @param id   ID của page cần merge
+     * @param user Thông tin user từ JWT token (Spring tự inject)
+     * @return 200 OK + PageResponse (có finalImageUrl)
+     * @response 403 — Không có quyền (chỉ MANGAKA)
+     * @response 500 — Lỗi composite hoặc upload Cloudinary
+     */
+    @Operation(
+            summary = "Merge layers into final image",
+            description = "Composite tất cả visible layers của page thành 1 ảnh duy nhất. Upload lên Cloudinary và lưu URL vào page.finalImageUrl."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Merge thành công — trả về page với finalImageUrl"),
+            @ApiResponse(responseCode = "403", description = "Không có quyền (chỉ MANGAKA)"),
+            @ApiResponse(responseCode = "404", description = "Không tìm thấy page"),
+            @ApiResponse(responseCode = "500", description = "Lỗi composite hoặc upload Cloudinary")
+    })
+    @PostMapping("/pages/{id}/merge")
+    @PreAuthorize("hasRole('MANGAKA')")
+    public ResponseEntity<PageResponse> mergeLayers(
+            @Parameter(description = "ID của page cần merge", example = "1")
+            @PathVariable Long id,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal CustomUserDetails user) {
+        PageResponse response = pageService.mergeLayers(id, user.getUserId());
+        return ResponseEntity.ok(response);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // PRIVATE HELPER — Lấy seriesId từ chapterId
     // ════════════════════════════════════════════════════════════════
 
     /**

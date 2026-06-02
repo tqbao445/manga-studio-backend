@@ -3,9 +3,12 @@ package com.mangaflow.studio.service.page;
 import com.mangaflow.studio.common.exception.AppException;
 import com.mangaflow.studio.dto.page.mapper.PageMapper;
 import com.mangaflow.studio.dto.page.response.PageResponse;
+import com.mangaflow.studio.model.page.Layer;
 import com.mangaflow.studio.model.page.Page;
 import com.mangaflow.studio.model.page.PageStatus;
+import com.mangaflow.studio.repository.page.LayerRepository;
 import com.mangaflow.studio.repository.page.PageRepository;
+import com.mangaflow.studio.service.chapter.ChapterService;
 import com.mangaflow.studio.service.storage.CloudinaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,6 +16,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.AlphaComposite;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -67,6 +76,18 @@ public class PageService {
      * pageMapper: MapStruct — chuyển đổi Page entity → PageResponse DTO.
      */
     private final PageMapper pageMapper;
+
+    /**
+     * layerRepository: Repository để truy vấn layers của page.
+     * Dùng trong mergeLayers() — lấy danh sách layers cần composite.
+     */
+    private final LayerRepository layerRepository;
+
+    /**
+     * chapterService: Service để lấy seriesId từ chapterId.
+     * Dùng trong mergeLayers() — xác định Cloudinary folder path.
+     */
+    private final ChapterService chapterService;
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET PAGES BY CHAPTER — Lấy danh sách pages
@@ -428,5 +449,113 @@ public class PageService {
 
         // ── Bước 8: Trả về page đã cập nhật ──
         return pageMapper.toResponse(page);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 7. MERGE LAYERS — Composite layers → final image
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * Merge tất cả visible layers của 1 page thành 1 ảnh duy nhất.
+     * Kết quả upload lên Cloudinary và lưu URL vào page.finalImageUrl.
+     *
+     * 📌 Quy trình:
+     *    1. Tìm page theo id → nếu không có throw 404
+     *    2. Lấy layers của page, lọc visible == true, có fileUrl
+     *    3. Lấy seriesId từ chapter (cần cho Cloudinary folder path)
+     *    4. Download ảnh nền từ page.originalImageUrl
+     *    5. Với mỗi layer (từ dưới lên theo sortOrder):
+     *       - Download ảnh layer từ fileUrl
+     *       - Composite vào ảnh nền với opacity tương ứng
+     *    6. Upload ảnh đã composite lên Cloudinary (overwrite)
+     *    7. Set page.finalImageUrl = URL ảnh merge
+     *    8. Save page → trả về PageResponse
+     *
+     * 📌 Graphics2D + AlphaComposite:
+     *    - AlphaComposite.SrcOver: vẽ layer chồng lên nền
+     *    - derive(opacity): set độ trong suốt của layer (0.0 → 1.0)
+     *    - RenderingHints.INTERPOLATION_BILINEAR: mượt ảnh
+     *
+     * @param pageId ID của page cần merge layers
+     * @param userId ID của MANGAKA — dùng cho Cloudinary folder path
+     * @return PageResponse page đã cập nhật finalImageUrl
+     * @throws AppException 404 — nếu không tìm thấy page
+     */
+    public PageResponse mergeLayers(Long pageId, Long userId) {
+        // ── Bước 1: Tìm page ──
+        Page page = pageRepository.findById(pageId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
+                        "Page not found with id: " + pageId));
+
+        // ── Bước 2: Lấy layers visible của page (từ dưới lên) ──
+        // Chỉ lấy layer visible == true và có fileUrl
+        // sorted by sortOrder ASC — layer 0 = dưới cùng
+        List<Layer> layers = layerRepository
+                .findByPageIdOrderBySortOrderAsc(pageId)
+                .stream()
+                .filter(l -> l.isVisible() && l.getFileUrl() != null && !l.getFileUrl().isBlank())
+                .toList();
+
+        // ── Bước 3: Lấy seriesId từ chapter ──
+        // Cần cho Cloudinary folder path: .../s{seriesId}/ch{chapterId}/p{pageNumber}/merge
+        Long seriesId = chapterService.getSeriesIdByChapterId(page.getChapterId());
+
+        try {
+            // ── Bước 4: Download ảnh nền (base page) ──
+            // Dùng originalImageUrl — ảnh gốc full size
+            BufferedImage baseImage = ImageIO.read(new URL(page.getOriginalImageUrl()));
+
+            // ── Bước 5: Composite từng layer vào ảnh nền ──
+            // Duyệt theo sortOrder tăng dần (dưới → trên)
+            BufferedImage compositeImage = baseImage;
+
+            for (Layer layer : layers) {
+                // Download ảnh layer từ Cloudinary
+                BufferedImage layerImage = ImageIO.read(new URL(layer.getFileUrl()));
+                if (layerImage == null) continue;
+
+                // Tạo ảnh mới cùng kích thước với ảnh nền
+                BufferedImage merged = new BufferedImage(
+                        compositeImage.getWidth(),
+                        compositeImage.getHeight(),
+                        BufferedImage.TYPE_INT_ARGB);
+
+                // Graphics2D — vẽ compositeImage + layerImage chồng lên merged
+                Graphics2D g2d = merged.createGraphics();
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                        RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // Vẽ ảnh nền trước
+                g2d.drawImage(compositeImage, 0, 0, null);
+
+                // Vẽ layer với opacity
+                // AlphaComposite.SrcOver: layer chồng lên nền
+                // derive((float) opacity): set độ trong suốt
+                g2d.setComposite(AlphaComposite.SrcOver.derive((float) layer.getOpacity()));
+                g2d.drawImage(layerImage, 0, 0,
+                        compositeImage.getWidth(), compositeImage.getHeight(), null);
+
+                g2d.dispose();
+                compositeImage = merged;
+            }
+
+            // ── Bước 6: Upload ảnh đã merge lên Cloudinary ──
+            String mergeUrl = cloudinaryService.uploadPageMerge(
+                    compositeImage, userId, seriesId,
+                    page.getChapterId(), page.getPageNumber());
+
+            // ── Bước 7: Cập nhật finalImageUrl ──
+            page.setFinalImageUrl(mergeUrl);
+
+            // ── Bước 8: Lưu page và trả về ──
+            Page savedPage = pageRepository.save(page);
+            return pageMapper.toResponse(savedPage);
+
+        } catch (Exception e) {
+            // IOException từ ImageIO.read() hoặc Cloudinary lỗi
+            throw new RuntimeException("Failed to merge layers for page " + pageId, e);
+        }
     }
 }

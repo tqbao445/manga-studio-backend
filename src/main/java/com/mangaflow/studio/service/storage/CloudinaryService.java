@@ -7,8 +7,11 @@ import lombok.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
+import javax.imageio.ImageIO;
 
 /**
  * ── CloudinaryService ──
@@ -651,6 +654,176 @@ public class CloudinaryService {
 
         } catch (IOException e) {
             throw new RuntimeException("Failed to upload task reference to Cloudinary", e);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  LAYER IMAGE METHODS (dành cho upload ảnh layer)
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * ── uploadLayerImage ──
+     * Upload 1 file ảnh cho layer lên Cloudinary.
+     * Được LayerService.createLayer() gọi khi frontend gửi file kèm multipart.
+     *
+     * 📌 Cấu trúc thư mục:
+     *    manga_studio/u{userId}/pages/p{pageId}/layers/{uuid}
+     *
+     *    Giải thích từng cấp:
+     *    - manga_studio  : thư mục gốc của dự án (cố định)
+     *    - u{userId}     : user ID của MANGAKA (người tạo layer)
+     *    - pages         : thư mục chứa ảnh liên quan đến page
+     *    - p{pageId}     : page ID (vd: p10 = page id = 10)
+     *    - layers        : thư mục chứa ảnh layers
+     *    - {uuid}        : UUID ngẫu nhiên — tránh trùng tên file
+     *
+     * 📌 public_id là UUID ngẫu nhiên:
+     *    - Không dùng tên file gốc (dễ trùng)
+     *    - Không overwrite (mỗi layer 1 ảnh riêng)
+     *
+     * 📌 Các URL trả về:
+     *    - originalImageUrl: ảnh gốc (full size) — dùng trong workspace
+     *    - webImageUrl:       ảnh resize 1920px — hiển thị trên web
+     *    - thumbnailUrl:      ảnh thumbnail 320px — preview trong LayerPanel
+     *
+     * @param file   File ảnh từ frontend (MultipartFile)
+     * @param userId ID của MANGAKA — lấy từ JWT token
+     * @param pageId ID của page chứa layer
+     * @return UploadResult chứa URLs + kích thước + publicId
+     */
+    public UploadResult uploadLayerImage(MultipartFile file, Long userId, Long pageId) {
+        try {
+            // ── Xây dựng folder + public_id (UUID ngẫu nhiên) ──
+            // folder = "manga_studio/u{userId}/pages/p{pageId}/layers"
+            // public_id = UUID ngẫu nhiên (vd: "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+            //
+            // Ví dụ: userId=3, pageId=10
+            // → folder = "manga_studio/u3/pages/p10/layers"
+            // → public_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            // → Cloudinary lưu file tại: .../layers/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jpg
+            String folder = "manga_studio/u" + userId + "/pages/p" + pageId + "/layers";
+            String publicId = java.util.UUID.randomUUID().toString();
+
+            // ── Upload file lên Cloudinary ──
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "public_id", publicId,
+                            "resource_type", "image",
+                            "overwrite", false
+                    )
+            );
+
+            // ── Đọc kết quả từ Cloudinary ──
+            String resultPublicId = (String) uploadResult.get("public_id");
+            String version = String.valueOf(uploadResult.get("version"));
+            String format = (String) uploadResult.get("format");
+            int width = ((Number) uploadResult.get("width")).intValue();
+            int height = ((Number) uploadResult.get("height")).intValue();
+
+            // ── Lấy cloudName từ config ──
+            String cloudName = (String) cloudinary.config.cloudName;
+
+            // ── Tạo 3 URLs ──
+            String baseUrl = "https://res.cloudinary.com/" + cloudName
+                    + "/image/upload/v" + version + "/" + resultPublicId + "." + format;
+            String webUrl = "https://res.cloudinary.com/" + cloudName
+                    + "/image/upload/c_limit,w_1920/v" + version + "/" + resultPublicId + "." + format;
+            String thumbUrl = "https://res.cloudinary.com/" + cloudName
+                    + "/image/upload/c_limit,w_320/v" + version + "/" + resultPublicId + "." + format;
+
+            return new UploadResult(baseUrl, webUrl, thumbUrl, width, height, resultPublicId);
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload layer image to Cloudinary", e);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  MERGE METHODS (dành cho composite layers → final image)
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * ── uploadPageMerge ──
+     * Upload ảnh đã merge (composite layers) lên Cloudinary.
+     * Được PageService.mergeLayers() gọi sau khi composite xong.
+     *
+     * 📌 Khác với uploadPage (nhận MultipartFile từ frontend):
+     *    uploadPageMerge nhận BufferedImage — ảnh đã được xử lý trong Java
+     *    (composite layers bằng Graphics2D + AlphaComposite).
+     *
+     * 📌 Cấu trúc thư mục:
+     *    manga_studio/u{userId}/s{seriesId}/ch{chapterId}/p{pageNumber}/merge/final.jpg
+     *
+     *    Giải thích từng cấp:
+     *    - manga_studio        : thư mục gốc của dự án (cố định)
+     *    - u{userId}           : user ID của tác giả (vd: u3 = user id = 3)
+     *    - s{seriesId}         : series ID (vd: s1 = series id = 1)
+     *    - ch{chapterId}       : chapter ID (vd: ch5 = chapter id = 5)
+     *    - p{pageNumber}       : số thứ tự page (vd: p1 = page số 1)
+     *    - merge/final.jpg     : ảnh kết quả merge, luôn có tên "final"
+     *
+     * 📌 overwrite = true:
+     *    Mỗi lần MANGAKA bấm "Merge & Export" → gọi lại API merge.
+     *    Backend composite lại từ đầu → upload ghi đè file cũ.
+     *    → Không sinh ra file rác trên Cloudinary.
+     *
+     * 📕 URL trả về là ảnh gốc (không transform) — frontend có thể
+     *    tự thêm transformation nếu cần resize hiển thị.
+     *
+     * @param image      BufferedImage đã composite xong (Graphics2D)
+     * @param userId     ID của user (tác giả) — lấy từ Page → Chapter → Series
+     * @param seriesId   ID của series
+     * @param chapterId  ID của chapter
+     * @param pageNumber Số thứ tự page trong chapter
+     * @return URL đầy đủ của ảnh merge trên Cloudinary
+     *         (vd: https://res.cloudinary.com/.../merge/final.jpg)
+     */
+    public String uploadPageMerge(BufferedImage image, Long userId, Long seriesId,
+                                   Long chapterId, Integer pageNumber) {
+        try {
+            // ── Xây dựng folder + public_id ──
+            // folder = "manga_studio/u{userId}/s{seriesId}/ch{chapterId}/p{pageNumber}/merge"
+            // public_id = "final" (tên file cố định)
+            //
+            // Ví dụ: userId=3, seriesId=1, chapterId=5, pageNumber=1
+            // → folder = "manga_studio/u3/s1/ch5/p1/merge"
+            // → public_id = "final"
+            // → Cloudinary lưu file tại: manga_studio/u3/s1/ch5/p1/merge/final.jpg
+            String folder = "manga_studio/u" + userId + "/s" + seriesId
+                    + "/ch" + chapterId + "/p" + pageNumber + "/merge";
+
+            // ── Chuyển BufferedImage → byte[] ──
+            // ImageIO.write(): ghi BufferedImage vào OutputStream dưới định dạng PNG
+            // Dùng PNG để giữ nguyên chất lượng và độ trong suốt (alpha channel).
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", baos);
+            byte[] imageBytes = baos.toByteArray();
+
+            // ── Upload file lên Cloudinary ──
+            // resource_type = "image": Cloudinary xử lý như ảnh
+            // overwrite = true: ghi đè nếu đã có file merge cũ
+            Map<?, ?> result = cloudinary.uploader().upload(
+                    imageBytes,
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "public_id", "final",
+                            "resource_type", "image",
+                            "overwrite", true
+                    )
+            );
+
+            // ── Trả về URL của ảnh merge ──
+            // Cloudinary trả về URL mặc định (không transform)
+            return (String) result.get("url");
+
+        } catch (IOException e) {
+            // IOException khi:
+            //   - ImageIO.write() lỗi (BufferedImage hỏng)
+            //   - Mạng lỗi khi gọi Cloudinary API
+            //   - Cloudinary server trả về lỗi
+            throw new RuntimeException("Failed to upload merged image to Cloudinary", e);
         }
     }
 

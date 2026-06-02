@@ -147,6 +147,18 @@ public class Page {
     private Integer height;
 
     /**
+     * finalImageUrl: URL ảnh sau khi merge tất cả layers.
+     * NULLABLE — chỉ có giá trị sau khi MANGAKA merge lần đầu.
+     * Khi merge lại → ghi đè URL mới (overwrite trên Cloudinary).
+     * <p>
+     * 📕 Dùng trong workspace để xem/xuất ảnh hoàn chỉnh.
+     *    Frontend hiển thị nút "Merge & Export" → gọi API merge.
+     *    Cloudinary folder: .../p{pageNumber}/merge/final.jpg
+     */
+    @Column(name = "final_image_url", length = 500)
+    private String finalImageUrl;
+
+    /**
      * status: Trạng thái hiện tại của page.
      * Mặc định: UPLOADED (vừa upload xong).
      *

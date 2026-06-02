@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -134,25 +135,38 @@ public class LayerService {
 
     /**
      * Tạo layer mới từ request của MANGAKA (từ LayerPanel "Add Layer").
+     * Hỗ trợ cả 2 cách:
+     *   - Upload file kèm multipart (file != null) → tự động upload Cloudinary
+     *   - Chỉ gửi fileUrl string (file == null) → dùng URL có sẵn
      *
      * 📌 Quy trình:
      *    1. Map LayerRequest → Layer entity (id, createdBy, createdAt được ignore)
      *    2. Gán pageId từ param
-     *    3. Tính sortOrder = maxSortOrder + 1 → layer mới ở trên cùng
-     *       - Nếu chưa có layer nào: max = -1 → sortOrder = 0
-     *    4. Gán createdBy = user hiện tại (lấy từ SecurityContext)
-     *    5. Gán createdAt = LocalDateTime.now()
-     *    6. Lưu DB → map sang DTO và trả về
+     *    3. Nếu có file → upload lên Cloudinary → set fileUrl + thumbnailUrl
+     *    4. Tính sortOrder = maxSortOrder + 1 → layer mới ở trên cùng
+     *    5. Gán createdBy = user hiện tại (lấy từ SecurityContext)
+     *    6. Gán createdAt = LocalDateTime.now()
+     *    7. Lưu DB → map sang DTO và trả về
      *
      * @param pageId  ID của page chứa layer
      * @param request DTO từ frontend (label bắt buộc, các field khác optional)
      * @param user    User entity — người tạo layer (lấy từ SecurityContext)
+     * @param file    File ảnh (optional) — nếu có, upload Cloudinary tự động
      * @return LayerResponse layer vừa tạo
      */
-    public LayerResponse createLayer(Long pageId, LayerRequest request, User user) {
+    public LayerResponse createLayer(Long pageId, LayerRequest request, User user,
+                                      MultipartFile file) {
         // Map request → entity
         Layer layer = layerMapper.toEntity(request);
         layer.setPageId(pageId);
+
+        // Nếu có file → upload lên Cloudinary → set fileUrl + thumbnailUrl
+        if (file != null && !file.isEmpty()) {
+            CloudinaryService.UploadResult uploadResult = cloudinaryService.uploadLayerImage(
+                    file, user.getId(), pageId);
+            layer.setFileUrl(uploadResult.getOriginalImageUrl());
+            layer.setThumbnailUrl(uploadResult.getThumbnailUrl());
+        }
 
         // Tính sortOrder tự động — layer mới luôn ở trên cùng
         int maxSortOrder = layerRepository.findMaxSortOrderByPageId(pageId);

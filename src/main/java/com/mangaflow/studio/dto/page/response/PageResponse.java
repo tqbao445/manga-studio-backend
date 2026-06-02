@@ -41,6 +41,9 @@ public class PageResponse {
     @Schema(description = "Chiều cao ảnh gốc (px)", example = "6000")
     private Integer height;
 
+    @Schema(description = "URL ảnh sau khi merge layers (từ chức năng Merge & Export)", example = "https://res.cloudinary.com/.../merge/final.jpg")
+    private String finalImageUrl;
+
     @Schema(description = "Trạng thái page: UPLOADED, REGIONS_DEFINED, IN_PRODUCTION, COMPLETED", example = "UPLOADED")
     private PageStatus status;
 
