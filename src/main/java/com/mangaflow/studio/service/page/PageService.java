@@ -9,6 +9,7 @@ import com.mangaflow.studio.model.page.PageStatus;
 import com.mangaflow.studio.repository.page.LayerRepository;
 import com.mangaflow.studio.repository.page.PageRepository;
 import com.mangaflow.studio.service.chapter.ChapterService;
+import com.mangaflow.studio.service.page.LayerService;
 import com.mangaflow.studio.service.storage.CloudinaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -88,6 +89,12 @@ public class PageService {
      * Dùng trong mergeLayers() — xác định Cloudinary folder path.
      */
     private final ChapterService chapterService;
+
+    /**
+     * layerService: Service xử lý Layer CRUD.
+     * Dùng trong flattenPage() — xoá tất cả layers của page (DB + Cloudinary).
+     */
+    private final LayerService layerService;
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET PAGES BY CHAPTER — Lấy danh sách pages
@@ -557,5 +564,56 @@ public class PageService {
             // IOException từ ImageIO.read() hoặc Cloudinary lỗi
             throw new RuntimeException("Failed to merge layers for page " + pageId, e);
         }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 8. FLATTEN — Merge + replace original + delete layers
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * Flatten page: gộp tất cả visible layers vào ảnh nền, ghi đè
+     * originalImageUrl bằng kết quả merge, xoá toàn bộ layers.
+     * <p>
+     * 📌 Quy trình:
+     *    1. Gọi mergeLayers() — composite + upload + set finalImageUrl
+     *    2. Xoá ảnh gốc cũ trên Cloudinary
+     *    3. Ghi đè originalImageUrl = finalImageUrl
+     *    4. Xoá finalImageUrl (không còn cần thiết)
+     *    5. Xoá toàn bộ layers (DB + Cloudinary) qua layerService
+     *    6. Lưu page và trả về
+     *
+     * @param pageId ID của page cần flatten
+     * @param userId ID của MANGAKA — dùng cho Cloudinary folder path
+     * @return PageResponse page đã cập nhật originalImageUrl
+     * @throws AppException 404 — nếu không tìm thấy page
+     */
+    public PageResponse flattenPage(Long pageId, Long userId) {
+        // ── Bước 1: Gọi mergeLayers — composite + upload + set finalImageUrl ──
+        mergeLayers(pageId, userId);
+
+        // ── Bước 2: Fetch lại page sau khi merge ──
+        Page page = pageRepository.findById(pageId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
+                        "Page not found with id: " + pageId));
+
+        // ── Bước 3: Xoá ảnh gốc cũ trên Cloudinary ──
+        if (page.getOriginalImageUrl() != null && !page.getOriginalImageUrl().isBlank()) {
+            try {
+                cloudinaryService.deleteImageByUrl(page.getOriginalImageUrl());
+            } catch (Exception e) {
+                // Không throw — ưu tiên hoàn tất flatten hơn là giữ ảnh cũ
+            }
+        }
+
+        // ── Bước 4: Ghi đè originalImageUrl = finalImageUrl ──
+        page.setOriginalImageUrl(page.getFinalImageUrl());
+        page.setFinalImageUrl(null);
+
+        // ── Bước 5: Xoá toàn bộ layers (DB + Cloudinary) ──
+        layerService.deleteLayersByPage(pageId);
+
+        // ── Bước 6: Lưu page và trả về ──
+        Page savedPage = pageRepository.save(page);
+        return pageMapper.toResponse(savedPage);
     }
 }

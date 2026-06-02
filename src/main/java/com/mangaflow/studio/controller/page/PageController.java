@@ -468,6 +468,54 @@ public class PageController {
     }
 
     // ════════════════════════════════════════════════════════════════
+    // 8. FLATTEN — Merge layers + replace original + delete layers
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * POST /api/v1/pages/{id}/flatten
+     * <p>
+     * 📌 Chức năng:
+     * Composite tất cả visible layers vào ảnh nền, ghi đè originalImageUrl
+     * bằng kết quả merge, sau đó xoá toàn bộ layers (DB + Cloudinary).
+     * Kết quả: page chỉ còn 1 ảnh duy nhất (đã merge), không còn layers nào.
+     * <p>
+     * 📌 Quyền truy cập (hasRole('MANGAKA')):
+     * - Chỉ MANGAKA mới được flatten
+     * <p>
+     * 📌 Frontend gọi API này khi:
+     *    MANGAKA bấm nút "Flatten" trên workspace toolbar.
+     *    → Sau flatten, frontend reload page → layers empty →
+     *      virtual base layer hiển thị ảnh đã merge.
+     *
+     * @param id   ID của page cần flatten
+     * @param user Thông tin user từ JWT token
+     * @return 200 OK + PageResponse (originalImageUrl đã update)
+     * @response 403 — Không có quyền (chỉ MANGAKA)
+     * @response 404 — Không tìm thấy page
+     * @response 500 — Lỗi composite hoặc upload Cloudinary
+     */
+    @Operation(
+            summary = "Flatten layers — merge + replace original + delete layers",
+            description = "Gộp tất cả visible layers vào ảnh nền, ghi đè originalImageUrl bằng kết quả, xoá toàn bộ layers."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Flatten thành công — page đã cập nhật originalImageUrl"),
+            @ApiResponse(responseCode = "403", description = "Không có quyền (chỉ MANGAKA)"),
+            @ApiResponse(responseCode = "404", description = "Không tìm thấy page"),
+            @ApiResponse(responseCode = "500", description = "Lỗi composite hoặc upload Cloudinary")
+    })
+    @PostMapping("/pages/{id}/flatten")
+    @PreAuthorize("hasRole('MANGAKA')")
+    public ResponseEntity<PageResponse> flattenPage(
+            @Parameter(description = "ID của page cần flatten", example = "1")
+            @PathVariable Long id,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal CustomUserDetails user) {
+        PageResponse response = pageService.flattenPage(id, user.getUserId());
+        return ResponseEntity.ok(response);
+    }
+
+    // ════════════════════════════════════════════════════════════════
     // PRIVATE HELPER — Lấy seriesId từ chapterId
     // ════════════════════════════════════════════════════════════════
 

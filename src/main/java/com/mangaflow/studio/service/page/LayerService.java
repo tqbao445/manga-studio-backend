@@ -156,6 +156,10 @@ public class LayerService {
      */
     public LayerResponse createLayer(Long pageId, LayerRequest request, User user,
                                       MultipartFile file) {
+        // Validate label bắt buộc khi tạo
+        if (request.getLabel() == null || request.getLabel().isBlank()) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "Label is required when creating a layer");
+        }
         // Map request → entity
         Layer layer = layerMapper.toEntity(request);
         layer.setPageId(pageId);
