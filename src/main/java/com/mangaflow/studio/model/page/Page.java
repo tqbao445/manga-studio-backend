@@ -1,5 +1,6 @@
 package com.mangaflow.studio.model.page;
 
+import com.mangaflow.studio.model.chapter.Chapter;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -23,14 +24,15 @@ import java.time.LocalDateTime;
  * 📌 @Builder: Pattern cho phép tạo object kiểu: Page.builder().title(...).build()
  *
  * ══════════════════════════════════════════════════════════════════
- *  Lưu ý về chapterId:
+ *  Lưu ý về chapterId vs chapter:
  * ══════════════════════════════════════════════════════════════════
- *  chapterId hiện tại là Long field đơn thuần (không có @ManyToOne).
- *  Khi bạn tạo Chapter entity sau này, chỉ cần thêm quan hệ:
- *    @ManyToOne(fetch = FetchType.LAZY)
- *    @JoinColumn(name = "chapter_id", nullable = false, insertable = false, updatable = false)
- *    private Chapter chapter;
- *  và giữ lại field chapterId để không phá vỡ code hiện tại.
+ *  Page có 2 cách truy cập chapter:
+ *   - chapterId (Long): dùng trong query, setter, builder — KHÔNG đổi
+ *   - chapter (@ManyToOne LAZY): load entity Chapter khi cần
+ *
+ *  📌 insertable = false, updatable = false trên @ManyToOne:
+ *     JPA chỉ dùng chapterId để INSERT/UPDATE, chapter chỉ để đọc.
+ *     Tránh xung đột — code cũ vẫn dùng chapterId.setter() thoải mái.
  */
 @Entity
 @Table(name = "pages", uniqueConstraints = {
@@ -53,13 +55,23 @@ public class Page {
     /**
      * chapterId: ID của chapter chứa page này.
      * NOT NULL — mỗi page phải thuộc về 1 chapter.
-     *
-     * 📌 Là Long field đơn thuần, KHÔNG phải quan hệ JPA.
-     *    Khi nào có Chapter entity thì mới thêm @ManyToOne.
-     *    (Xem giải thích ở đầu class)
+     * <p>
+     * 📌 Dùng trong INSERT/UPDATE và các query (findByChapterId...).
+     *    Code cũ set chapterId = value vẫn hoạt động bình thường.
      */
-    @Column(nullable = false)
+    @Column(name = "chapter_id", nullable = false)
     private Long chapterId;
+
+    /**
+     * chapter: Entity Chapter (LAZY — chỉ load khi cần).
+     * <p>
+     * 📌 insertable = false, updatable = false:
+     *    JPA dùng chapterId để ghi DB, chapter chỉ để đọc.
+     *    Cho phép gọi page.getChapter().getSeriesId() trực tiếp.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chapter_id", nullable = false, insertable = false, updatable = false)
+    private Chapter chapter;
 
     /**
      * pageNumber: Số thứ tự của page trong chapter.

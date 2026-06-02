@@ -372,7 +372,12 @@ public class CloudinaryService {
         try {
             String publicId = extractPublicId(imageUrl);
             if (publicId != null) {
-                cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
+                // Phát hiện resource type từ URL:
+                //   /image/upload/ → "image"
+                //   /raw/upload/   → "raw"
+                String resourceType = imageUrl.contains("/raw/upload/") ? "raw" : "image";
+                cloudinary.uploader().destroy(publicId,
+                        ObjectUtils.asMap("resource_type", resourceType));
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed to delete image from Cloudinary", e);
@@ -401,6 +406,252 @@ public class CloudinaryService {
         if (start == -1 || end == -1 || end <= start) return null;
 
         return imageUrl.substring(start, end);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  TASK IMAGE METHODS (dành cho upload ảnh task submission)
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * ── uploadTaskImage ──
+     * Upload ảnh kết quả (result image) của TaskSubmission lên Cloudinary.
+     * ASSISTANT submit task → backend nhận file ảnh → upload lên Cloudinary.
+     *
+     * 📌 Cấu trúc thư mục:
+     *    manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}/result
+     *
+     *    Giải thích từng cấp:
+     *    - manga_studio        : thư mục gốc của dự án (cố định)
+     *    - u{userId}           : user ID của ASSISTANT (người submit)
+     *    - tasks               : thư mục chứa tất cả task images
+     *    - t{taskId}           : task ID (vd: t15 = task id = 15)
+     *    - submissions         : thư mục chứa các phiên submit
+     *    - v{version}          : version của submission (vd: v1 = lần submit đầu)
+     *    - result              : tên file ảnh kết quả (public_id = "result")
+     *
+     * 📌 overwrite = true:
+     *    Nếu ASSISTANT submit lại (cùng version) → ghi đè file cũ.
+     *    Mỗi lần submit mới → version +1 → không lo mất lịch sử.
+     *
+     * 📌 Các URL trả về:
+     *    - originalImageUrl: ảnh gốc (full size) — dùng trong workspace
+     *    - webImageUrl:       ảnh resize 1920px — hiển thị trên web
+     *    - thumbnailUrl:      ảnh thumbnail 320px — preview trong danh sách
+     *
+     * @param file    File ảnh từ frontend (MultipartFile) — kết quả ASSISTANT làm
+     * @param userId  ID của ASSISTANT — lấy từ JWT token
+     * @param taskId  ID của task — từ URL param
+     * @param version Version của submission (bắt đầu từ 1)
+     * @return UploadResult chứa URLs + kích thước + publicId
+     */
+    public UploadResult uploadTaskImage(MultipartFile file, Long userId, Long taskId, int version) {
+        try {
+            // ── Xây dựng folder + public_id ──
+            // folder = "manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}"
+            // public_id = "result" (tên file cố định)
+            //
+            // Ví dụ: userId=5, taskId=15, version=1
+            // → folder = "manga_studio/u5/tasks/t15/submissions/v1"
+            // → public_id = "result"
+            // → Cloudinary lưu file tại: manga_studio/u5/tasks/t15/submissions/v1/result.jpg
+            String folder = "manga_studio/u" + userId + "/tasks/t" + taskId
+                    + "/submissions/v" + version;
+
+            // ── Upload file lên Cloudinary ──
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "public_id", "result",
+                            "resource_type", "image",
+                            "overwrite", true
+                    )
+            );
+
+            // ── Đọc kết quả từ Cloudinary ──
+            String resultPublicId = (String) uploadResult.get("public_id");
+            String versionStr = String.valueOf(uploadResult.get("version"));
+            String format = (String) uploadResult.get("format");
+            int width = ((Number) uploadResult.get("width")).intValue();
+            int height = ((Number) uploadResult.get("height")).intValue();
+
+            // ── Lấy cloudName từ config ──
+            String cloudName = (String) cloudinary.config.cloudName;
+
+            // ── Tạo 3 URLs ──
+            // original: không transform (ảnh gốc)
+            // web: w_1920 (hiển thị trên trình duyệt)
+            // thumb: w_320 (thumbnail preview)
+            String baseUrl = "https://res.cloudinary.com/" + cloudName
+                    + "/image/upload/v" + versionStr + "/" + resultPublicId + "." + format;
+            String webUrl = "https://res.cloudinary.com/" + cloudName
+                    + "/image/upload/c_limit,w_1920/v" + versionStr + "/" + resultPublicId + "." + format;
+            String thumbUrl = "https://res.cloudinary.com/" + cloudName
+                    + "/image/upload/c_limit,w_320/v" + versionStr + "/" + resultPublicId + "." + format;
+
+            return new UploadResult(baseUrl, webUrl, thumbUrl, width, height, resultPublicId);
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload task image to Cloudinary", e);
+        }
+    }
+
+    /**
+     * ── uploadTaskRawFile ──
+     * Upload file nguồn (source file) của TaskSubmission lên Cloudinary.
+     * ASSISTANT có thể gửi kèm file .psd, .clip, .zip,... làm tài liệu tham khảo.
+     *
+     * 📌 Cấu trúc thư mục (giống uploadTaskImage):
+     *    manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}/source
+     *
+     * 📌 resource_type = "raw":
+     *    Cloudinary phân biệt 2 loại resource:
+     *    - "image": file ảnh (jpg, png, ...) — có transform, tạo thumbnail
+     *    - "raw":   file bất kỳ (psd, zip, pdf, ...) — giữ nguyên file
+     *    Vì source file có thể là .psd, .clip (không phải ảnh) → dùng "raw".
+     *
+     * 📌 overwrite = true:
+     *    Nếu submit lại cùng version → ghi đè file cũ.
+     *
+     * 💡 Không return UploadResult vì raw file không có width/height.
+     *     Chỉ cần URL để hiển thị link download cho MANGAKA.
+     *
+     * @param file    File nguồn từ frontend (MultipartFile) — có thể là .psd, .zip...
+     * @param userId  ID của ASSISTANT — lấy từ JWT token
+     * @param taskId  ID của task — từ URL param
+     * @param version Version của submission (bắt đầu từ 1)
+     * @return URL đầy đủ của file trên Cloudinary
+     */
+    public String uploadTaskRawFile(MultipartFile file, Long userId, Long taskId, int version) {
+        try {
+            // ── Xây dựng folder + public_id ──
+            // folder = "manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}"
+            // public_id = "source" (tên file cố định)
+            //
+            // Ví dụ: userId=5, taskId=15, version=1, file=source.psd
+            // → folder = "manga_studio/u5/tasks/t15/submissions/v1"
+            // → public_id = "source"
+            // → Cloudinary lưu file tại: manga_studio/u5/tasks/t15/submissions/v1/source.psd
+            String folder = "manga_studio/u" + userId + "/tasks/t" + taskId
+                    + "/submissions/v" + version;
+
+            // ── Lấy tên file gốc để xác định đuôi mở rộng ──
+            // Dùng originalFilename để Cloudinary tự động giữ đuôi file
+            // VD: "source.psd" → Cloudinary tạo source.psd
+            String originalFilename = file.getOriginalFilename();
+
+            // ── Upload file lên Cloudinary ──
+            // resource_type = "raw": cho phép upload file không phải ảnh
+            // use_filename = true + unique_filename = false:
+            //   → Giữ đúng tên file gốc (VD: source.psd) thay vì Cloudinary tự sinh
+            Map<?, ?> result = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "public_id", "source",
+                            "resource_type", "raw",
+                            "overwrite", true
+                    )
+            );
+
+            return (String) result.get("url");
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload task raw file to Cloudinary", e);
+        }
+    }
+
+    /**
+     * ── uploadTaskAttachment ──
+     * Upload file đính kèm (attachment) của TaskSubmission lên Cloudinary.
+     * Tương tự uploadTaskImage nhưng dùng riêng cho attachment
+     * (ảnh tham khảo, tài liệu hướng dẫn...).
+     *
+     * 📌 Cấu trúc thư mục:
+     *    manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}/attachments/{filename}
+     *
+     * 📌 resource_type = "raw":
+     *    Attachment có thể là ảnh hoặc file bất kỳ (pdf, doc...).
+     *    Dùng "raw" để hỗ trợ tất cả định dạng.
+     *
+     * @param file    File đính kèm từ frontend (MultipartFile)
+     * @param userId  ID của ASSISTANT — lấy từ JWT token
+     * @param taskId  ID của task — từ URL param
+     * @param version Version của submission (bắt đầu từ 1)
+     * @return URL đầy đủ của file trên Cloudinary
+     */
+    public String uploadTaskAttachment(MultipartFile file, Long userId, Long taskId, int version) {
+        try {
+            // ── Xây dựng folder + public_id ──
+            // folder = "manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}/attachments"
+            // public_id = tên file gốc (giữ nguyên để dễ nhận biết)
+            String folder = "manga_studio/u" + userId + "/tasks/t" + taskId
+                    + "/submissions/v" + version + "/attachments";
+
+            String originalFilename = file.getOriginalFilename();
+            // Bỏ đuôi file vì Cloudinary tự thêm
+            String publicId = originalFilename != null && originalFilename.contains(".")
+                    ? originalFilename.substring(0, originalFilename.lastIndexOf('.'))
+                    : "attachment";
+
+            Map<?, ?> result = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "public_id", publicId,
+                            "resource_type", "raw",
+                            "overwrite", true
+                    )
+            );
+
+            return (String) result.get("url");
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload task attachment to Cloudinary", e);
+        }
+    }
+
+    /**
+     * ── uploadTaskReference ──
+     * Upload file tham khảo (reference attachment) cho task.
+     * File do MANGAKA đính kèm để ASSISTANT tham khảo.
+     * <p>
+     * 📌 Khác với uploadTaskAttachment (thuộc submission/version):
+     *    uploadTaskReference không gắn với version nào — lưu trực tiếp
+     *    trong thư mục attachments của task.
+     * <p>
+     * 📌 Cấu trúc thư mục:
+     *    manga_studio/u{userId}/tasks/t{taskId}/attachments/{filename}
+     *
+     * @param file   File từ frontend (MultipartFile)
+     * @param userId ID của MANGAKA — lấy từ JWT token
+     * @param taskId ID của task — từ URL param
+     * @return URL đầy đủ của file trên Cloudinary
+     */
+    public String uploadTaskReference(MultipartFile file, Long userId, Long taskId) {
+        try {
+            String folder = "manga_studio/u" + userId + "/tasks/t" + taskId + "/attachments";
+
+            String originalFilename = file.getOriginalFilename();
+            String publicId = originalFilename != null && originalFilename.contains(".")
+                    ? originalFilename.substring(0, originalFilename.lastIndexOf('.'))
+                    : "reference";
+
+            Map<?, ?> result = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "public_id", publicId,
+                            "resource_type", "raw",
+                            "overwrite", true
+                    )
+            );
+
+            return (String) result.get("url");
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload task reference to Cloudinary", e);
+        }
     }
 
     /**

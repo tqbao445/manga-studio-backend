@@ -1,12 +1,12 @@
 package com.mangaflow.studio.controller.task;
 
 import com.mangaflow.studio.common.security.CustomUserDetails;
-import com.mangaflow.studio.dto.task.request.AttachmentRequest;
 import com.mangaflow.studio.dto.task.request.SubmissionStatusRequest;
 import com.mangaflow.studio.dto.task.request.TaskRequest;
 import com.mangaflow.studio.dto.task.request.TaskStatusRequest;
-import com.mangaflow.studio.dto.task.request.TaskSubmissionRequest;
 import com.mangaflow.studio.dto.task.request.TaskUpdateRequest;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 import com.mangaflow.studio.dto.task.response.TaskAttachmentResponse;
 import com.mangaflow.studio.dto.task.response.TaskResponse;
 import com.mangaflow.studio.dto.task.response.TaskSubmissionResponse;
@@ -352,12 +352,18 @@ public class TaskController {
     /**
      * POST /api/tasks/{taskId}/submissions
      * <p>
-     * ASSISTANT nộp bài làm. Tự động tăng version.
+     * ASSISTANT nộp bài làm. Backend upload file lên Cloudinary, tự động tăng version.
      * Chỉ nộp được khi task IN_PROGRESS hoặc REJECTED.
+     * <p>
+     * 📌 Multipart form-data:
+     *    - resultImage: File ảnh kết quả (bắt buộc, jpg/png/...)
+     *    - sourceFile:  File nguồn (optional, psd/clip/zip/...)
+     *    - note:        Ghi chú (optional)
      */
-    @Operation(summary = "Nộp bài làm",
+    @Operation(summary = "Nộp bài làm (multipart)",
             description = "ASSISTANT nộp bài làm cho task. "
-                    + "Hệ thống tự động tăng version (version cao nhất + 1). "
+                    + "Backend nhận file ảnh + file nguồn (optional) + note, "
+                    + "upload lên Cloudinary và tự động tăng version. "
                     + "Chỉ nộp được khi task IN_PROGRESS hoặc REJECTED.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Bài làm đã nộp"),
@@ -365,18 +371,26 @@ public class TaskController {
             @ApiResponse(responseCode = "403", description = "Bạn không phải ASSISTANT được gán"),
             @ApiResponse(responseCode = "404", description = "Task không tồn tại")
     })
-    @PostMapping("/tasks/{taskId}/submissions")
+    @PostMapping(value = "/tasks/{taskId}/submissions",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ASSISTANT')")
     public ResponseEntity<TaskSubmissionResponse> submitTask(
             @Parameter(description = "ID của task cần nộp bài", example = "1")
             @PathVariable Long taskId,
 
-            @Parameter(description = "Thông tin bài nộp")
-            @Valid @RequestBody TaskSubmissionRequest request,
+            @Parameter(description = "File ảnh kết quả (jpg, png, ...)")
+            @RequestParam("resultImage") MultipartFile resultImage,
+
+            @Parameter(description = "File nguồn (psd, clip, zip, ...) — không bắt buộc")
+            @RequestParam(value = "sourceFile", required = false) MultipartFile sourceFile,
+
+            @Parameter(description = "Ghi chú cho MANGAKA")
+            @RequestParam(value = "note", required = false) String note,
 
             @AuthenticationPrincipal CustomUserDetails user) {
 
-        TaskSubmissionResponse response = taskService.submitTask(taskId, request, user);
+        TaskSubmissionResponse response = taskService.submitTask(
+                taskId, resultImage, sourceFile, note, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -423,26 +437,32 @@ public class TaskController {
      * POST /api/tasks/{taskId}/attachments
      * <p>
      * MANGAKA đính kèm file tham khảo cho task.
+     * Backend upload file lên Cloudinary và lưu attachment vào DB.
+     * <p>
+     * 📌 Multipart request — file trong form-data, key = "file".
      */
-    @Operation(summary = "Đính kèm file tham khảo",
-            description = "MANGAKA đính kèm file tham khảo (ảnh mẫu, tài liệu) cho task.")
+    @Operation(summary = "Đính kèm file tham khảo (multipart)",
+            description = "MANGAKA đính kèm file tham khảo (ảnh mẫu, tài liệu) cho task. "
+                    + "Backend upload lên Cloudinary và lưu vào DB. "
+                    + "Gửi dạng multipart/form-data với key 'file'.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "File đã đính kèm"),
             @ApiResponse(responseCode = "403", description = "Bạn không phải MANGAKA tạo task này"),
             @ApiResponse(responseCode = "404", description = "Task không tồn tại")
     })
-    @PostMapping("/tasks/{taskId}/attachments")
+    @PostMapping(value = "/tasks/{taskId}/attachments",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<TaskAttachmentResponse> addAttachment(
             @Parameter(description = "ID của task", example = "1")
             @PathVariable Long taskId,
 
-            @Parameter(description = "URL file đính kèm")
-            @Valid @RequestBody AttachmentRequest request,
+            @Parameter(description = "File đính kèm (ảnh, pdf, ...)")
+            @RequestParam("file") MultipartFile file,
 
             @AuthenticationPrincipal CustomUserDetails user) {
 
-        TaskAttachmentResponse response = taskService.addAttachment(taskId, request, user);
+        TaskAttachmentResponse response = taskService.addAttachment(taskId, file, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

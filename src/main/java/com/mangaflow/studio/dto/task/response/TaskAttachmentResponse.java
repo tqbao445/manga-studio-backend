@@ -30,6 +30,9 @@ public class TaskAttachmentResponse {
     @Schema(description = "URL file đính kèm", example = "https://...ref-asset.png")
     private String fileUrl;
 
+    @Schema(description = "Tên file gốc", example = "mau-tham-khao.png")
+    private String fileName;
+
     @Schema(description = "Thời điểm upload", example = "2026-05-30T10:30:00")
     private LocalDateTime uploadedAt;
 }

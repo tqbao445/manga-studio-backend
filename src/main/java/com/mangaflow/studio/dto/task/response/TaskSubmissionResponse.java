@@ -35,6 +35,9 @@ public class TaskSubmissionResponse {
     @Schema(description = "URL ảnh kết quả", example = "https://...submit-v2.jpg")
     private String resultImageUrl;
 
+    @Schema(description = "URL thumbnail của ảnh kết quả (resize w_320)", example = "https://...c_limit,w_320/.../submit-v2.jpg")
+    private String thumbnailUrl;
+
     @Schema(description = "URL file nguồn (PSD/CLIP)", example = "https://...file-v2.psd")
     private String fileUrl;
 
