@@ -66,6 +66,14 @@ public class TaskAttachment {
     private String fileUrl;
 
     /**
+     * fileName: Tên file gốc (vd: "mau-tham-khao.png").
+     * Lưu để frontend hiển thị tên file đẹp thay vì URL dài.
+     * NULL safe — nếu không lấy được tên, frontend fallback về "file".
+     */
+    @Column(name = "file_name", length = 255)
+    private String fileName;
+
+    /**
      * uploadedAt: Thời điểm upload file.
      * NOT NULL — set lúc tạo attachment.
      */

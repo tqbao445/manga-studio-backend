@@ -5,7 +5,6 @@ import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.task.mapper.TaskAttachmentMapper;
 import com.mangaflow.studio.dto.task.mapper.TaskMapper;
 import com.mangaflow.studio.dto.task.mapper.TaskSubmissionMapper;
-import com.mangaflow.studio.dto.task.request.AttachmentRequest;
 import com.mangaflow.studio.dto.task.request.TaskRequest;
 import com.mangaflow.studio.dto.task.request.TaskSubmissionRequest;
 import com.mangaflow.studio.dto.task.request.TaskUpdateRequest;
@@ -26,6 +25,8 @@ import com.mangaflow.studio.repository.region.RegionRepository;
 import com.mangaflow.studio.repository.task.TaskAttachmentRepository;
 import com.mangaflow.studio.repository.task.TaskRepository;
 import com.mangaflow.studio.repository.task.TaskSubmissionRepository;
+import com.mangaflow.studio.service.page.LayerService;
+import com.mangaflow.studio.service.storage.CloudinaryService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -36,6 +37,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -89,6 +91,8 @@ public class TaskService {
     private final TaskMapper taskMapper;
     private final TaskSubmissionMapper taskSubmissionMapper;
     private final TaskAttachmentMapper taskAttachmentMapper;
+    private final CloudinaryService cloudinaryService;
+    private final LayerService layerService;
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET TASKS — Danh sách tasks (có filter + phân trang)
@@ -588,7 +592,14 @@ public class TaskService {
                     "Cannot change status from " + currentStatus + " to " + newStatus);
         }
 
-        // ── Bước 3: Cập nhật và lưu ──
+        // ── Bước 3: Xoá ảnh Cloudinary (nếu REJECTED) ──
+        // Khi task bị REJECTED, xoá tất cả ảnh submissions trên Cloudinary
+        // để tránh rác. Không xoá DB records — giữ lịch sử.
+        if (newStatus == TaskStatus.REJECTED) {
+            deleteTaskCloudinaryFiles(task);
+        }
+
+        // ── Bước 4: Cập nhật và lưu ──
         task.setStatus(newStatus);
         Task savedTask = taskRepository.save(task);
 
@@ -606,6 +617,10 @@ public class TaskService {
      * <p>
      * 📌 Cascade: Xoá task → tự động xoá submissions và attachments
      *    (nhờ cascade = ALL và orphanRemoval = true ở Task entity).
+     * <p>
+     * 📌 Xoá ảnh Cloudinary trước khi xoá DB:
+     *    - Dù task đang TODO (chưa có submission nào), vẫn gọi cleanup
+     *      để đề phòng trường hợp sau này mở rộng cho phép xoá task có submissions.
      *
      * @param id ID của task cần xoá
      * @throws AppException 404 — nếu không tìm thấy task
@@ -625,7 +640,11 @@ public class TaskService {
                             + ". Only TODO tasks can be deleted");
         }
 
-        // ── Bước 3: Xoá record trong database ──
+        // ── Bước 3: Xoá ảnh trên Cloudinary trước (nếu có) ──
+        // Task TODO thường chưa có submission, nhưng cleanup an toàn
+        deleteTaskCloudinaryFiles(task);
+
+        // ── Bước 4: Xoá record trong database ──
         // Cascade sẽ tự động xoá submissions và attachments
         taskRepository.delete(task);
     }
@@ -666,7 +685,8 @@ public class TaskService {
      * POST /api/tasks/{taskId}/submissions
      * <p>
      * ASSISTANT nộp bài làm cho task.
-     * Hệ thống tự động tăng version (lấy version cao nhất hiện tại + 1).
+     * Backend nhận file ảnh kết quả + file nguồn (optional) + note,
+     * upload lên Cloudinary, sau đó lưu submission vào database.
      * <p>
      * 📌 Điều kiện:
      *    - User phải là ASSISTANT được gán cho task này
@@ -676,16 +696,24 @@ public class TaskService {
      *    - Lần nộp đầu → version = 1
      *    - Sau mỗi lần sửa → version + 1
      *    - Các submission cũ vẫn được giữ lại (lịch sử)
+     * <p>
+     * 📌 Cloudinary folder:
+     *    manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}/
      *
      * @param taskId      ID của task cần nộp bài
-     * @param request     DTO chứa resultImageUrl (bắt buộc), fileUrl, note
+     * @param resultImage File ảnh kết quả (MultipartFile) — bắt buộc
+     * @param sourceFile  File nguồn (MultipartFile) — optional (.psd, .clip, ...)
+     * @param note        Ghi chú cho MANGAKA — optional
      * @param currentUser User đang đăng nhập (ASSISTANT)
      * @return TaskSubmissionResponse — bài vừa nộp
      * @throws AppException 404 — nếu task không tồn tại
      * @throws AppException 403 — nếu user không phải ASSISTANT được gán
      * @throws AppException 400 — nếu task không ở trạng thái cho phép nộp
      */
-    public TaskSubmissionResponse submitTask(Long taskId, TaskSubmissionRequest request,
+    public TaskSubmissionResponse submitTask(Long taskId,
+                                              MultipartFile resultImage,
+                                              MultipartFile sourceFile,
+                                              String note,
                                               CustomUserDetails currentUser) {
         // ── Bước 1: Tìm task ──
         Task task = taskRepository.findById(taskId)
@@ -700,7 +728,6 @@ public class TaskService {
         }
 
         // ── Bước 3: Kiểm tra trạng thái task ──
-        // Chỉ nộp được khi task IN_PROGRESS hoặc REJECTED
         if (task.getStatus() != TaskStatus.IN_PROGRESS
                 && task.getStatus() != TaskStatus.REJECTED) {
             throw new AppException(HttpStatus.BAD_REQUEST,
@@ -709,32 +736,93 @@ public class TaskService {
         }
 
         // ── Bước 4: Tính version tiếp theo ──
-        // Lấy submission có version cao nhất → +1
-        // Nếu chưa có submission nào → version = 1
         int nextVersion = taskSubmissionRepository
                 .findByTaskIdOrderByVersionDesc(taskId)
                 .stream()
-                .findFirst()                       // Lấy submission mới nhất (version cao nhất)
-                .map(s -> s.getVersion() + 1)      // Tăng lên 1
-                .orElse(1);                         // Chưa có → bắt đầu từ 1
+                .findFirst()
+                .map(s -> s.getVersion() + 1)
+                .orElse(1);
 
-        // ── Bước 5: Tạo TaskSubmission entity ──
+        Long userId = currentUser.getUserId();
+
+        // ── Bước 5: Upload result image lên Cloudinary ──
+        CloudinaryService.UploadResult uploadResult = cloudinaryService.uploadTaskImage(
+                resultImage, userId, taskId, nextVersion);
+
+        // ── Bước 6: Upload source file lên Cloudinary (nếu có) ──
+        String sourceFileUrl = null;
+        if (sourceFile != null && !sourceFile.isEmpty()) {
+            sourceFileUrl = cloudinaryService.uploadTaskRawFile(
+                    sourceFile, userId, taskId, nextVersion);
+        }
+
+        // ── Bước 7: Tạo TaskSubmission entity ──
+        TaskSubmission submission = TaskSubmission.builder()
+                .task(task)
+                .resultImageUrl(uploadResult.getOriginalImageUrl())
+                .fileUrl(sourceFileUrl)
+                .note(note)
+                .version(nextVersion)
+                .status(TaskSubmissionStatus.SUBMITTED)
+                .submittedAt(LocalDateTime.now())
+                .build();
+
+        // ── Bước 8: Thêm vào task và lưu ──
+        task.getSubmissions().add(submission);
+        taskRepository.save(task);
+
+        // ── Bước 9: Map sang DTO và trả về ──
+        return taskSubmissionMapper.toResponse(submission);
+    }
+
+    /**
+     * POST /api/tasks/{taskId}/submissions (JSON body — cho frontend cũ / test)
+     * <p>
+     * Phiên bản cũ: nhận URL từ client thay vì upload file.
+     * ASSISTANT phải tự upload ảnh lên Cloudinary trước, sau đó gửi URL.
+     *
+     * @deprecated Dùng phiên bản multipart (có upload backend) thay thế.
+     */
+    @Deprecated
+    public TaskSubmissionResponse submitTask(Long taskId, TaskSubmissionRequest request,
+                                              CustomUserDetails currentUser) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
+                        "Task not found: " + taskId));
+
+        if (task.getAssistant() == null
+                || !task.getAssistant().getId().equals(currentUser.getUserId())) {
+            throw new AppException(HttpStatus.FORBIDDEN,
+                    "You are not assigned to this task");
+        }
+
+        if (task.getStatus() != TaskStatus.IN_PROGRESS
+                && task.getStatus() != TaskStatus.REJECTED) {
+            throw new AppException(HttpStatus.BAD_REQUEST,
+                    "Can only submit when task is IN_PROGRESS or REJECTED, current: "
+                            + task.getStatus());
+        }
+
+        int nextVersion = taskSubmissionRepository
+                .findByTaskIdOrderByVersionDesc(taskId)
+                .stream()
+                .findFirst()
+                .map(s -> s.getVersion() + 1)
+                .orElse(1);
+
         TaskSubmission submission = TaskSubmission.builder()
                 .task(task)
                 .resultImageUrl(request.getResultImageUrl())
                 .fileUrl(request.getFileUrl())
                 .note(request.getNote())
                 .version(nextVersion)
-                .status(TaskSubmissionStatus.SUBMITTED)  // Vừa nộp → chờ duyệt
+                .status(TaskSubmissionStatus.SUBMITTED)
                 .submittedAt(LocalDateTime.now())
                 .build();
 
-        // ── Bước 6: Thêm vào task và lưu ──
-        // Dùng cascade: thêm vào task.getSubmissions() → tự động save
         task.getSubmissions().add(submission);
         taskRepository.save(task);
 
-        // ── Bước 7: Map sang DTO và trả về ──
         return taskSubmissionMapper.toResponse(submission);
     }
 
@@ -749,9 +837,17 @@ public class TaskService {
      * <p>
      * 📌 Hành vi theo trạng thái duyệt:
      * <pre>
-     *  APPROVED           → submission hoàn thành, task → DONE
-     *  REVISION_REQUIRED  → yêu cầu sửa, task → IN_PROGRESS
+     *  APPROVED           → submission hoàn thành, task → DONE, tự động tạo Layer
+     *  REVISION_REQUIRED  → yêu cầu sửa, task → IN_PROGRESS (không tạo Layer)
      * </pre>
+     * <p>
+     * 📌 Layer tự động khi APPROVED:
+     *    - pageId = task.region.pageId (page chứa region của task)
+     *    - fileUrl = submission.resultImageUrl (kết quả ASSISTANT)
+     *    - thumbnailUrl = fileUrl + transformation w_320
+     *    - label = task.title
+     *    - createdBy = task.assistant (ASSISTANT đã làm task)
+     *    - sortOrder = maxSortOrder(pageId) + 1 (trên cùng)
      * <p>
      * 📌 Điều kiện:
      *    - User phải là MANGAKA đã tạo task này
@@ -784,14 +880,12 @@ public class TaskService {
         }
 
         // ── Bước 3: Kiểm tra submission đang ở SUBMITTED ──
-        // Không thể duyệt lại 1 submission đã duyệt rồi
         if (submission.getStatus() != TaskSubmissionStatus.SUBMITTED) {
             throw new AppException(HttpStatus.BAD_REQUEST,
                     "Can only review SUBMITTED submissions, current: " + submission.getStatus());
         }
 
         // ── Bước 4: Kiểm tra status hợp lệ ──
-        // Chỉ chấp nhận APPROVED hoặc REVISION_REQUIRED
         if (newStatus != TaskSubmissionStatus.APPROVED
                 && newStatus != TaskSubmissionStatus.REVISION_REQUIRED) {
             throw new AppException(HttpStatus.BAD_REQUEST,
@@ -803,39 +897,152 @@ public class TaskService {
         taskSubmissionRepository.save(submission);
 
         // ── Bước 6: Cập nhật task status ──
-        // APPROVED → task DONE
-        // REVISION_REQUIRED → task IN_PROGRESS (để ASSISTANT sửa)
+        // APPROVED → task DONE + tạo Layer tự động
+        // REVISION_REQUIRED → task IN_PROGRESS (không tạo Layer)
         if (newStatus == TaskSubmissionStatus.APPROVED) {
             task.setStatus(TaskStatus.DONE);
+            taskRepository.save(task);
+
+            // ── Bước 7: Tự động tạo Layer từ submission ──
+            // Chỉ tạo Layer khi APPROVED — REVISION_REQUIRED không tạo
+            createLayerFromSubmission(submission, task);
         } else {
             task.setStatus(TaskStatus.IN_PROGRESS);
+            taskRepository.save(task);
         }
-        taskRepository.save(task);
 
-        // ── Bước 7: Map sang DTO và trả về ──
+        // ── Bước 8: Map sang DTO và trả về ──
         return taskSubmissionMapper.toResponse(submission);
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 11. ADD ATTACHMENT — Đính kèm file tham khảo
+    //  HELPER — Tự động tạo Layer từ submission APPROVED
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * Tạo Layer tự động khi MANGAKA APPROVED 1 TaskSubmission.
+     * <p>
+     * 📌 Dữ liệu lấy từ:
+     *    - pageId:         task.region.pageId (page đang làm việc)
+     *    - fileUrl:        submission.resultImageUrl (ảnh kết quả)
+     *    - thumbnailUrl:   fileUrl + resize w_320 (preview trong LayerPanel)
+     *    - label:          task.title (tên task làm tên layer)
+     *    - user:           task.assistant (ASSISTANT đã làm)
+     * <p>
+     * 📌 Nếu task.region hoặc pageId null → không tạo Layer (log warn)
+     *    (tránh crash nếu region bị xoá trước khi duyệt)
+     *
+     * @param submission TaskSubmission đã APPROVED
+     * @param task       Task chứa submission
+     */
+    private void createLayerFromSubmission(TaskSubmission submission, Task task) {
+        // Kiểm tra region và pageId tồn tại
+        if (task.getRegion() == null || task.getRegion().getPageId() == null) {
+            // Region hoặc page đã bị xoá — không thể tạo Layer
+            return;
+        }
+
+        Long pageId = task.getRegion().getPageId();
+        String fileUrl = submission.getResultImageUrl();
+        String thumbnailUrl = generateThumbnailUrl(fileUrl);
+        String label = task.getTitle();
+        User assistant = task.getAssistant();
+
+        // Gọi LayerService để tạo layer
+        // LayerService tự động:
+        //   - Tính sortOrder = maxSortOrder(pageId) + 1 (trên cùng)
+        //   - Set createdAt = LocalDateTime.now()
+        layerService.createLayerFromSubmission(pageId, fileUrl, thumbnailUrl, label, assistant);
+    }
+
+    /**
+     * Tạo URL thumbnail từ Cloudinary URL gốc.
+     * <p>
+     * Chèn transformation "c_limit,w_320" vào URL để Cloudinary
+     * tự động resize ảnh xuống width 320px.
+     * <p>
+     * URL gốc:   https://res.cloudinary.com/{cloud}/image/upload/v{version}/{publicId}.{ext}
+     * URL thumb: https://res.cloudinary.com/{cloud}/image/upload/c_limit,w_320/v{version}/{publicId}.{ext}
+     *
+     * @param imageUrl URL Cloudinary gốc
+     * @return URL với resize w_320, hoặc null nếu input null
+     */
+    private String generateThumbnailUrl(String imageUrl) {
+        if (imageUrl == null) return null;
+        return imageUrl.replace("/upload/", "/upload/c_limit,w_320/");
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  HELPER — Xoá tất cả ảnh submissions trên Cloudinary
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * Xoá tất cả ảnh (resultImage + fileUrl) của các submissions
+     * thuộc 1 task khỏi Cloudinary.
+     * <p>
+     * Dùng khi:
+     *   - Task bị REJECTED (IN_PROGRESS → REJECTED)
+     *   - Task bị xoá (deleteTask)
+     * <p>
+     * 📌 Không throw exception nếu xoá 1 ảnh thất bại —
+     *    tiếp tục xoá các ảnh còn lại. Ưu tiên DB operation.
+     * <p>
+     * 📌 Không xoá DB records — chỉ xoá file trên Cloudinary.
+     *
+     * @param task Task cần xoá ảnh submissions
+     */
+    private void deleteTaskCloudinaryFiles(Task task) {
+        List<TaskSubmission> submissions = task.getSubmissions();
+        if (submissions == null || submissions.isEmpty()) {
+            return;
+        }
+
+        for (TaskSubmission submission : submissions) {
+            // Xoá resultImageUrl (ảnh kết quả)
+            if (submission.getResultImageUrl() != null
+                    && !submission.getResultImageUrl().isBlank()) {
+                try {
+                    cloudinaryService.deleteImageByUrl(submission.getResultImageUrl());
+                } catch (Exception e) {
+                    // Không throw — tiếp tục xoá các ảnh khác
+                }
+            }
+
+            // Xoá fileUrl (file nguồn .psd/.clip)
+            if (submission.getFileUrl() != null
+                    && !submission.getFileUrl().isBlank()) {
+                try {
+                    cloudinaryService.deleteImageByUrl(submission.getFileUrl());
+                } catch (Exception e) {
+                    // Không throw — tiếp tục xoá các ảnh khác
+                }
+            }
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 11. ADD ATTACHMENT — Đính kèm file tham khảo (multipart)
     // ════════════════════════════════════════════════════════════════
 
     /**
      * POST /api/tasks/{taskId}/attachments
      * <p>
      * MANGAKA đính kèm file tham khảo (ảnh mẫu, tài liệu) cho task.
+     * Backend upload file lên Cloudinary, sau đó lưu attachment vào DB.
      * <p>
      * 📌 Chỉ MANGAKA tạo task mới được thêm attachment.
-     *    (Hoặc có thể mở rộng: bất kỳ MANGAKA nào cũng được — tuỳ config)
+     * <p>
+     * 📌 Cloudinary folder:
+     *    manga_studio/u{userId}/tasks/t{taskId}/attachments/{filename}
      *
      * @param taskId      ID của task
-     * @param request     DTO chứa fileUrl
+     * @param file        File từ frontend (MultipartFile)
      * @param currentUser User đang đăng nhập
      * @return TaskAttachmentResponse — attachment vừa tạo
      * @throws AppException 404 — nếu task không tồn tại
      * @throws AppException 403 — nếu không phải MANGAKA tạo task
      */
-    public TaskAttachmentResponse addAttachment(Long taskId, AttachmentRequest request,
+    public TaskAttachmentResponse addAttachment(Long taskId, MultipartFile file,
                                                   CustomUserDetails currentUser) {
         // ── Bước 1: Tìm task ──
         Task task = taskRepository.findById(taskId)
@@ -843,24 +1050,34 @@ public class TaskService {
                         "Task not found: " + taskId));
 
         // ── Bước 2: Kiểm tra quyền ──
-        // Chỉ MANGAKA tạo task mới được thêm attachment
         if (!task.getAssignedBy().getId().equals(currentUser.getUserId())) {
             throw new AppException(HttpStatus.FORBIDDEN,
                     "Only the task creator can add attachments");
         }
 
-        // ── Bước 3: Tạo attachment entity ──
+        // ── Bước 3: Kiểm tra file không rỗng ──
+        if (file == null || file.isEmpty()) {
+            throw new AppException(HttpStatus.BAD_REQUEST,
+                    "File must not be empty");
+        }
+
+        // ── Bước 4: Upload file lên Cloudinary ──
+        String fileUrl = cloudinaryService.uploadTaskReference(
+                file, currentUser.getUserId(), taskId);
+
+        // ── Bước 5: Tạo attachment entity ──
         TaskAttachment attachment = TaskAttachment.builder()
                 .task(task)
-                .fileUrl(request.getFileUrl())
+                .fileUrl(fileUrl)
+                .fileName(file.getOriginalFilename())
                 .uploadedAt(LocalDateTime.now())
                 .build();
 
-        // ── Bước 4: Thêm vào task và lưu ──
+        // ── Bước 6: Thêm vào task và lưu ──
         task.getAttachments().add(attachment);
         taskRepository.save(task);
 
-        // ── Bước 5: Map sang DTO và trả về ──
+        // ── Bước 7: Map sang DTO và trả về ──
         return taskAttachmentMapper.toResponse(attachment);
     }
 
@@ -871,10 +1088,9 @@ public class TaskService {
     /**
      * DELETE /api/attachments/{id}
      * <p>
-     * Xoá file đính kèm khỏi task.
+     * Xoá file đính kèm khỏi task và xoá file trên Cloudinary.
      * <p>
-     * 📌 Chỉ MANGAKA mới được xoá attachment.
-     *    (Role check ở Controller)
+     * 📌 Chỉ MANGAKA mới được xoá attachment (Role check ở Controller).
      *
      * @param id ID của attachment cần xoá
      * @throws AppException 404 — nếu attachment không tồn tại
@@ -885,10 +1101,16 @@ public class TaskService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Attachment not found: " + id));
 
-        // ── Bước 2: Xoá record trong database ──
-        // Vì Task entity có cascade = ALL, orphanRemoval = true,
-        // nhưng ở đây xoá trực tiếp attachment repository
-        // → chỉ DELETE 1 record trong bảng task_attachments
+        // ── Bước 2: Xoá file trên Cloudinary ──
+        if (attachment.getFileUrl() != null && !attachment.getFileUrl().isBlank()) {
+            try {
+                cloudinaryService.deleteImageByUrl(attachment.getFileUrl());
+            } catch (Exception e) {
+                // Không throw — ưu tiên xoá DB hơn
+            }
+        }
+
+        // ── Bước 3: Xoá record trong database ──
         taskAttachmentRepository.delete(attachment);
     }
 
