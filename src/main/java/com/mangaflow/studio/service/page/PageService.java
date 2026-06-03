@@ -303,7 +303,10 @@ public class PageService {
         // Nếu lỗi → throw RuntimeException (GlobalExceptionHandler xử lý)
         cloudinaryService.deleteImage(page.getPublicId());
 
-        // ── Bước 3: Xoá record trong database ──
+        // ── Bước 3: Xoá layers trước (tránh FK constraint) ──
+        layerService.deleteLayersByPage(pageId);
+
+        // ── Bước 4: Xoá record trong database ──
         pageRepository.delete(page);
     }
 
