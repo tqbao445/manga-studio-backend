@@ -9,6 +9,8 @@ import com.mangaflow.studio.model.page.Layer;
 import com.mangaflow.studio.repository.page.LayerRepository;
 import com.mangaflow.studio.service.storage.CloudinaryService;
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,6 +81,9 @@ public class LayerService {
      * Gồm: toResponse(), toEntity(), updateFromRequest().
      */
     private final LayerMapper layerMapper;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
      * cloudinaryService: Service xoá ảnh trên Cloudinary.
@@ -400,19 +405,16 @@ public class LayerService {
         int insertIndex = Math.min(newSortOrder, pageLayers.size());
         pageLayers.add(insertIndex, layer);
 
-        // Pass 1: tăng tạm sortOrder lên 10000 để tránh UNIQUE conflict
-        for (Layer l : pageLayers) {
-            l.setSortOrder(l.getSortOrder() + 10000);
-        }
-        layerRepository.saveAll(pageLayers);
-        layerRepository.flush();
-
-        // Pass 2: gán sortOrder thật từ 0
+        // Single native UPDATE with CASE — atomic, không deadlock
+        Long pageId = layer.getPageId();
+        StringBuilder sql = new StringBuilder("UPDATE layer SET sort_order = CASE id ");
         for (int i = 0; i < pageLayers.size(); i++) {
-            pageLayers.get(i).setSortOrder(i);
+            sql.append("WHEN ").append(pageLayers.get(i).getId()).append(" THEN ").append(i).append(" ");
         }
-        layerRepository.saveAll(pageLayers);
+        sql.append("ELSE sort_order END WHERE page_id = ").append(pageId);
+        entityManager.createNativeQuery(sql.toString()).executeUpdate();
 
+        layer.setSortOrder(insertIndex);
         return layerMapper.toResponse(layer);
     }
 

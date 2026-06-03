@@ -727,8 +727,10 @@ public class TaskService {
                     "You are not assigned to this task");
         }
 
-        // ── Bước 3: Kiểm tra trạng thái task ──
-        if (task.getStatus() != TaskStatus.IN_PROGRESS
+        // ── Bước 3: Kiểm tra / tự động chuyển trạng thái task ──
+        if (task.getStatus() == TaskStatus.TODO) {
+            task.setStatus(TaskStatus.IN_PROGRESS);
+        } else if (task.getStatus() != TaskStatus.IN_PROGRESS
                 && task.getStatus() != TaskStatus.REJECTED) {
             throw new AppException(HttpStatus.BAD_REQUEST,
                     "Can only submit when task is IN_PROGRESS or REJECTED, current: "
@@ -864,6 +866,7 @@ public class TaskService {
      */
     public TaskSubmissionResponse reviewSubmission(Long submissionId,
                                                     TaskSubmissionStatus newStatus,
+                                                    String reviewNote,
                                                     CustomUserDetails currentUser) {
         // ── Bước 1: Tìm submission ──
         TaskSubmission submission = taskSubmissionRepository.findById(submissionId)
@@ -892,8 +895,11 @@ public class TaskService {
                     "Status must be APPROVED or REVISION_REQUIRED");
         }
 
-        // ── Bước 5: Cập nhật submission status ──
+        // ── Bước 5: Cập nhật submission status + review note ──
         submission.setStatus(newStatus);
+        if (reviewNote != null && !reviewNote.isBlank()) {
+            submission.setReviewNote(reviewNote);
+        }
         taskSubmissionRepository.save(submission);
 
         // ── Bước 6: Cập nhật task status ──
@@ -907,7 +913,7 @@ public class TaskService {
             // Chỉ tạo Layer khi APPROVED — REVISION_REQUIRED không tạo
             createLayerFromSubmission(submission, task);
         } else {
-            task.setStatus(TaskStatus.IN_PROGRESS);
+            task.setStatus(TaskStatus.REJECTED);
             taskRepository.save(task);
         }
 

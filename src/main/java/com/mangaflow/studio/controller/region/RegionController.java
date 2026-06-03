@@ -2,7 +2,7 @@ package com.mangaflow.studio.controller.region;
 
 import com.mangaflow.studio.dto.region.request.RegionReorderRequest;
 import com.mangaflow.studio.dto.region.request.RegionRequest;
-import com.mangaflow.studio.dto.region.request.RegionStatusRequest;
+import com.mangaflow.studio.dto.region.request.RegionUpdateRequest;
 import com.mangaflow.studio.dto.region.response.RegionResponse;
 import com.mangaflow.studio.service.region.RegionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -226,99 +226,31 @@ public class RegionController {
             @PathVariable Long id,
 
             @Parameter(description = "Thông tin region cần cập nhật (các field null sẽ bỏ qua)")
-            @Valid @RequestBody RegionRequest request) {
+            @RequestBody RegionUpdateRequest request) {
         // Gọi service → cập nhật region → trả về HTTP 200
         return ResponseEntity.ok(regionService.updateRegion(id, request));
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 4. UPDATE REGION STATUS — Đổi trạng thái region
-    // ════════════════════════════════════════════════════════════════
-
-    /**
-     * PATCH /api/v1/regions/{id}/status
-     * <p>
-     * 📌 Chức năng: Đổi trạng thái region (PENDING → IN_PROGRESS → COMPLETED).
-     * <p>
-     * 📌 Request body (JSON):
-     * {
-     * "status": "IN_PROGRESS"
-     * }
-     * <p>
-     * 📌 Response 200:
-     * {
-     * "id": 1,
-     * "status": "IN_PROGRESS",
-     * ...
-     * }
-     * <p>
-     * 📌 Tại sao dùng PATCH thay vì PUT?
-     * - PATCH: cập nhật 1 phần resource (chỉ thay đổi status)
-     * - PUT: thay thế toàn bộ resource
-     * - Đây là chuẩn REST — dùng PATCH cho partial update
-     * <p>
-     * 📌 @Valid @RequestBody RegionStatusRequest:
-     * DTO chỉ có 1 field: status (enum) — bắt buộc, không được null
-     *
-     * @param id      ID của region (lấy từ URL)
-     * @param request DTO chứa status mới (body JSON)
-     * @return ResponseEntity chứa region đã đổi status (HTTP 200)
-     */
-    @Operation(
-            summary = "Đổi trạng thái region",
-            description = "Chuyển trạng thái region theo luồng: PENDING → IN_PROGRESS → COMPLETED. Chỉ MANGAKA mới được dùng."
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Region đã đổi trạng thái"),
-            @ApiResponse(responseCode = "400", description = "Chuyển trạng thái không hợp lệ (VD: PENDING → COMPLETED)"),
-            @ApiResponse(responseCode = "404", description = "Không tìm thấy region"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANGAKA mới được đổi trạng thái")
-    })
-    @PatchMapping("/regions/{id}/status")
-    @PreAuthorize("hasRole('MANGAKA')")
-    public ResponseEntity<RegionResponse> updateRegionStatus(
-            @Parameter(description = "ID của region", example = "1")
-            @PathVariable Long id,
-
-            @Parameter(description = "Trạng thái mới (PENDING, IN_PROGRESS, COMPLETED)")
-            @Valid @RequestBody RegionStatusRequest request) {
-        // Gọi service → đổi status → trả về HTTP 200
-        return ResponseEntity.ok(regionService.updateRegionStatus(id, request.getStatus()));
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    // 5. DELETE REGION — Xoá region
+    // 4. DELETE REGION — Xoá region (chỉ khi tất cả tasks liên quan đã DONE)
     // ════════════════════════════════════════════════════════════════
 
     /**
      * DELETE /api/v1/regions/{id}
      * <p>
-     * 📌 Chức năng: Xoá 1 region. Chỉ xoá được khi region đang PENDING.
-     * <p>
-     * 📌 Request:
-     * DELETE /api/v1/regions/1
-     * <p>
-     * 📌 Response 204:
-     * (Không có body — chuẩn REST cho delete thành công)
-     * <p>
-     * 📌 ResponseEntity.noContent():
-     * - HTTP 204 No Content — không trả về body
-     * - Chuẩn REST: DELETE thành công → 204 (không có nội dung trả về)
-     * <p>
-     * 📌 Tại sao chỉ xoá được PENDING?
-     * - IN_PROGRESS: đã assign task → xoá sẽ mất dữ liệu công việc
-     * - COMPLETED: đã hoàn thành → cần giữ lại để thống kê/lịch sử
+     * 📌 Chức năng: Xoá 1 region. Chỉ xoá được khi tất cả tasks của region
+     * đã DONE hoặc không có task nào.
      *
      * @param id ID của region cần xoá (lấy từ URL)
      * @return ResponseEntity rỗng (HTTP 204)
      */
     @Operation(
             summary = "Xoá region",
-            description = "Xoá region. Chỉ xoá được khi region đang PENDING (chưa có task). Chỉ MANGAKA mới được dùng."
+            description = "Xoá region. Chỉ xoá được khi tất cả tasks liên quan đã DONE. Chỉ MANGAKA mới được dùng."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Đã xoá thành công — không có nội dung trả về"),
-            @ApiResponse(responseCode = "400", description = "Region đang IN_PROGRESS hoặc COMPLETED, không thể xoá"),
+            @ApiResponse(responseCode = "400", description = "Còn task chưa DONE, không thể xoá"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy region"),
             @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANGAKA mới được xoá region")
     })
@@ -327,7 +259,6 @@ public class RegionController {
     public ResponseEntity<Void> deleteRegion(
             @Parameter(description = "ID của region cần xoá", example = "1")
             @PathVariable Long id) {
-        // Gọi service → xoá region → trả về HTTP 204 No Content
         regionService.deleteRegion(id);
         return ResponseEntity.noContent().build();
     }

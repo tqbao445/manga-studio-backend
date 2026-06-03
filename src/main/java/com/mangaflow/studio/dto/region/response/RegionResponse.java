@@ -1,6 +1,5 @@
 package com.mangaflow.studio.dto.region.response;
 
-import com.mangaflow.studio.model.region.RegionStatus;
 import com.mangaflow.studio.model.region.RegionType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -100,17 +99,6 @@ public class RegionResponse {
      */
     @Schema(description = "Thứ tự render (0 = dưới cùng)", example = "0")
     private Integer sortOrder;
-
-    /**
-     * status: Trạng thái hiện tại của region.
-     * <p>
-     * Các trạng thái:
-     *    - PENDING      : mới tạo, chưa có task
-     *    - IN_PROGRESS  : đang có task được thực hiện
-     *    - COMPLETED    : task đã hoàn thành
-     */
-    @Schema(description = "Trạng thái region: PENDING, IN_PROGRESS, COMPLETED", example = "PENDING")
-    private RegionStatus status;
 
     /**
      * createdAt: Thời điểm tạo region.

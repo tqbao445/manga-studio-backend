@@ -1,6 +1,7 @@
 package com.mangaflow.studio.repository.task;
 
 import com.mangaflow.studio.model.task.Task;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
@@ -31,18 +32,15 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     /**
      * Lấy danh sách tasks của 1 region, sắp xếp theo assignedAt giảm dần.
      * <p>
+     * 📌 @EntityGraph(attributePaths = "submissions"):
+     *    Eagerly load submissions để frontend có thể hiển thị trạng thái ngay sau khi submit.
+     * <p>
      * 📌 Dùng ở:
      *    - GET /api/regions/{regionId}/tasks (endpoint 3)
-     * <p>
-     * 📌 SQL tự sinh:
-     *    SELECT * FROM tasks
-     *    WHERE region_id = ?
-     *    ORDER BY assigned_at DESC
-     * <p>
-     * 📌 assignedAt DESC = task mới giao lên trước.
      *
      * @param regionId ID của region
      * @return List<Task> danh sách tasks (mới nhất trước)
      */
+    @EntityGraph(attributePaths = "submissions")
     List<Task> findByRegionIdOrderByAssignedAtDesc(Long regionId);
 }

@@ -90,6 +90,14 @@ public class TaskSubmission {
     private String note;
 
     /**
+     * reviewNote: Ghi chú của MANGAKA khi duyệt.
+     * NULLABLE — không bắt buộc.
+     * VD: "Cần sửa màu sắc và thêm shadow"
+     */
+    @Column(name = "review_note", columnDefinition = "TEXT")
+    private String reviewNote;
+
+    /**
      * version: Số phiên bản nộp bài.
      * NOT NULL — tự động tăng dần (1, 2, 3...).
      * <p>

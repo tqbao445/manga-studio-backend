@@ -12,8 +12,6 @@ import lombok.Data;
  * 📌 Dùng ở:
  *    - PATCH /api/submissions/{id}/status (endpoint 10)
  * <p>
- * Chỉ có 1 field: status (trạng thái duyệt).
- * <p>
  * Giá trị hợp lệ:
  *    - APPROVED:            Chấp nhận bài nộp → task DONE
  *    - REVISION_REQUIRED:   Yêu cầu sửa lại → task IN_PROGRESS
@@ -29,4 +27,11 @@ public class SubmissionStatusRequest {
     @NotNull(message = "Status is required")
     @Schema(description = "Trạng thái duyệt: APPROVED hoặc REVISION_REQUIRED", example = "APPROVED", requiredMode = Schema.RequiredMode.REQUIRED)
     private TaskSubmissionStatus status;
+
+    /**
+     * note: Ghi chú của MANGAKA khi duyệt.
+     * Không bắt buộc — lưu vào submission để ASSISTANT biết lý do.
+     */
+    @Schema(description = "Ghi chú của MANGAKA khi duyệt", example = "Cần sửa màu sắc và thêm shadow")
+    private String note;
 }

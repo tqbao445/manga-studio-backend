@@ -44,6 +44,9 @@ public class TaskSubmissionResponse {
     @Schema(description = "Ghi chú của ASSISTANT", example = "Đã sửa theo yêu cầu")
     private String note;
 
+    @Schema(description = "Ghi chú của MANGAKA khi duyệt", example = "Cần sửa màu sắc và thêm shadow")
+    private String reviewNote;
+
     @Schema(description = "Số phiên bản (1, 2, 3...)", example = "2")
     private Integer version;
 

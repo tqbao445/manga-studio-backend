@@ -3,10 +3,13 @@ package com.mangaflow.studio.service.region;
 import com.mangaflow.studio.common.exception.AppException;
 import com.mangaflow.studio.dto.region.mapper.RegionMapper;
 import com.mangaflow.studio.dto.region.request.RegionRequest;
+import com.mangaflow.studio.dto.region.request.RegionUpdateRequest;
 import com.mangaflow.studio.dto.region.response.RegionResponse;
 import com.mangaflow.studio.model.region.Region;
-import com.mangaflow.studio.model.region.RegionStatus;
 import com.mangaflow.studio.model.region.RegionType;
+import com.mangaflow.studio.model.task.Task;
+import com.mangaflow.studio.model.task.TaskStatus;
+import com.mangaflow.studio.repository.task.TaskRepository;
 import com.mangaflow.studio.repository.region.RegionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,13 +32,12 @@ import java.util.Map;
  * <p>
  * ══════════════════════════════════════════════════════════════════
  *  Danh sách method:
- * ══════════════════════════════════════════════════════════════════
+ * </pre>
  *  1. getRegionsByPage(pageId)     — Lấy danh sách regions
  *  2. createRegion(pageId, req)    — Tạo region mới
  *  3. updateRegion(id, req)        — Cập nhật region
- *  4. updateRegionStatus(id, s)    — Đổi trạng thái
- *  5. deleteRegion(id)             — Xoá region
- *  6. reorderRegions(pageId, ids)  — Sắp xếp lại thứ tự
+ *  4. deleteRegion(id)             — Xoá region
+ *  5. reorderRegions(pageId, ids)  — Sắp xếp lại thứ tự
  */
 @Service
 @RequiredArgsConstructor
@@ -51,6 +53,11 @@ public class RegionService {
      * Cung cấp CRUD + method tuỳ chỉnh findByPageIdOrderBySortOrderAsc().
      */
     private final RegionRepository regionRepository;
+
+    /**
+     * taskRepository: Repository cho Task — kiểm tra tasks của region.
+     */
+    private final TaskRepository taskRepository;
 
     /**
      * regionMapper: MapStruct — chuyển đổi Region entity ↔ RegionResponse DTO.
@@ -140,35 +147,17 @@ public class RegionService {
      * @return RegionResponse region vừa tạo
      */
     public RegionResponse createRegion(Long pageId, RegionRequest request) {
-        // ── Bước 1: Tính sortOrder cho region mới ──
-        // Lấy tất cả regions trong page → tìm max sortOrder
-        // Nếu page chưa có region nào → max = -1 → new sortOrder = 0
         int maxSortOrder = regionRepository.findByPageIdOrderBySortOrderAsc(pageId)
                 .stream()
-                .mapToInt(Region::getSortOrder) // Lấy sortOrder của từng region
+                .mapToInt(Region::getSortOrder)
                 .max()
-                .orElse(-1); // Nếu page không có region → mặc định -1
+                .orElse(-1);
 
-        // ── Bước 2: Gán màu mặc định nếu không gửi ──
-        // Nếu request.getColor() null hoặc blank → lấy màu mặc định theo regionType
-        // Nếu regionType không có trong map → màu xám (#6B7280)
         String color = request.getColor();
         if (color == null || color.isBlank()) {
             color = DEFAULT_COLORS.getOrDefault(request.getRegionType(), "#6B7280");
         }
 
-        // ── Bước 3: Tạo Region entity ──
-        // Sử dụng Builder pattern (Lombok):
-        //   Region.builder()
-        //     .pageId(pageId)
-        //     .regionType(request.getRegionType())
-        //     ...
-        //     .build()
-        //
-        // Lưu ý:
-        //   - status: mặc định PENDING (chưa có task)
-        //   - sortOrder: max + 1 (region mới luôn ở trên cùng)
-        //   - createdAt, updatedAt: tự động set trong @PrePersist
         Region region = Region.builder()
                 .pageId(pageId)
                 .regionType(request.getRegionType())
@@ -179,16 +168,9 @@ public class RegionService {
                 .height(request.getHeight())
                 .color(color)
                 .sortOrder(maxSortOrder + 1)
-                .status(RegionStatus.PENDING)
                 .build();
 
-        // ── Bước 4: Lưu vào database ──
-        // regionRepository.save(region):
-        //   - INSERT INTO regions (page_id, region_type, label, x, y, ...) VALUES (...)
-        //   - Trả về Region entity với id đã được sinh
         Region savedRegion = regionRepository.save(region);
-
-        // ── Bước 5: Map sang DTO và trả về ──
         return regionMapper.toResponse(savedRegion);
     }
 
@@ -216,7 +198,7 @@ public class RegionService {
      * @return RegionResponse region đã cập nhật
      * @throws AppException 404 — nếu không tìm thấy region
      */
-    public RegionResponse updateRegion(Long id, RegionRequest request) {
+    public RegionResponse updateRegion(Long id, RegionUpdateRequest request) {
         // ── Bước 1: Tìm region ──
         // findById trả về Optional — dùng orElseThrow để ném 404
         // Nếu không tìm thấy → "Region not found: {id}"
@@ -270,115 +252,31 @@ public class RegionService {
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 4. UPDATE REGION STATUS — Đổi trạng thái region
-    // ════════════════════════════════════════════════════════════════
-
-    /**
-     * Đổi trạng thái region (PENDING → IN_PROGRESS → COMPLETED).
-     * <p>
-     * 📌 Luồng trạng thái (strict — không được nhảy cóc):
-     * <pre>
-     *     PENDING ───→ IN_PROGRESS ───→ COMPLETED
-     *        ↑               ↑                ↑
-     *     Chưa làm     Đang làm         Hoàn thành
-     * </pre>
-     * <p>
-     * 📌 Quy trình:
-     *    1. Tìm region theo id
-     *       - Nếu không tìm thấy → throw NOT_FOUND
-     *    2. Kiểm tra chuyển trạng thái hợp lệ
-     *       - PENDING → IN_PROGRESS: hợp lệ
-     *       - IN_PROGRESS → COMPLETED: hợp lệ
-     *       - COMPLETED → * : không hợp lệ (đã xong)
-     *       - PENDING → COMPLETED: không hợp lệ (bỏ qua IN_PROGRESS)
-     *    3. Nếu không hợp lệ → throw BAD_REQUEST
-     *    4. Cập nhật status → lưu DB → trả về
-     * <p>
-     * 📌 Tại sao dùng switch expression?
-     *    - Rõ ràng: liệt kê tất cả trường hợp, compiler báo nếu thiếu case
-     *    - An toàn: không cần default (RegionStatus chỉ có 3 giá trị)
-     *
-     * @param id     ID của region (lấy từ URL param)
-     * @param status Trạng thái mới (từ request body)
-     * @return RegionResponse region đã đổi status
-     * @throws AppException 404 — nếu không tìm thấy region
-     * @throws AppException 400 — nếu chuyển trạng thái không hợp lệ
-     */
-    public RegionResponse updateRegionStatus(Long id, RegionStatus status) {
-        // ── Bước 1: Tìm region ──
-        Region region = regionRepository.findById(id)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
-                        "Region not found: " + id));
-
-        // ── Bước 2: Kiểm tra chuyển trạng thái hợp lệ ──
-        // Dùng switch expression (Java 17+) — liệt kê đủ 3 case
-        // Nếu không khớp → valid = false
-        RegionStatus current = region.getStatus();
-
-        boolean valid = switch (current) {
-            case PENDING -> status == RegionStatus.IN_PROGRESS;
-            // PENDING chỉ được chuyển sang IN_PROGRESS
-            case IN_PROGRESS -> status == RegionStatus.COMPLETED;
-            // IN_PROGRESS chỉ được chuyển sang COMPLETED
-            case COMPLETED -> false;
-            // COMPLETED là trạng thái cuối → không thể chuyển tiếp
-        };
-
-        // ── Bước 3: Nếu không hợp lệ → throw exception ──
-        if (!valid) {
-            throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Cannot change status from " + current + " to " + status);
-        }
-
-        // ── Bước 4: Cập nhật và lưu ──
-        region.setStatus(status);
-        Region savedRegion = regionRepository.save(region);
-
-        // ── Bước 5: Trả về DTO ──
-        return regionMapper.toResponse(savedRegion);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    // 5. DELETE REGION — Xoá region
+    // 4. DELETE REGION — Xoá region (chỉ khi tất cả tasks liên quan đã DONE)
     // ════════════════════════════════════════════════════════════════
 
     /**
      * Xoá 1 region khỏi hệ thống.
-     * Chỉ xoá được khi region đang ở trạng thái PENDING.
-     * <p>
-     * 📌 Tại sao chỉ xoá được PENDING?
-     *    - IN_PROGRESS: đã có người làm → không thể xoá giữa chừng
-     *    - COMPLETED: đã hoàn thành → giữ lại để lưu lịch sử
-     * <p>
-     * 📌 Quy trình:
-     *    1. Tìm region theo id
-     *       - Nếu không tìm thấy → throw NOT_FOUND
-     *    2. Kiểm tra status
-     *       - Nếu không phải PENDING → throw BAD_REQUEST
-     *    3. Xoá record trong database
+     * Chỉ xoá được khi tất cả tasks của region đã DONE hoặc không có task nào.
      *
-     * @param id ID của region cần xoá (lấy từ URL param)
+     * @param id ID của region cần xoá
      * @throws AppException 404 — nếu không tìm thấy region
-     * @throws AppException 400 — nếu region không ở trạng thái PENDING
+     * @throws AppException 400 — nếu còn task chưa DONE
      */
     public void deleteRegion(Long id) {
-        // ── Bước 1: Tìm region ──
         Region region = regionRepository.findById(id)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Region not found: " + id));
 
-        // ── Bước 2: Kiểm tra status ──
-        // Chỉ cho phép xoá khi region ở trạng thái PENDING
-        // Nếu đã IN_PROGRESS hoặc COMPLETED → không cho xoá
-        if (region.getStatus() != RegionStatus.PENDING) {
+        List<Task> tasks = taskRepository.findByRegionIdOrderByAssignedAtDesc(id);
+        boolean hasIncompleteTask = tasks.stream()
+                .anyMatch(t -> t.getStatus() != TaskStatus.DONE);
+
+        if (hasIncompleteTask) {
             throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Cannot delete region with status " + region.getStatus());
+                    "Cannot delete region with incomplete tasks");
         }
 
-        // ── Bước 3: Xoá record trong database ──
-        // DELETE FROM regions WHERE id = ?
-        // Lưu ý: chưa có cascade với tasks — sau này nếu region có task
-        // con thì cần xoá tasks trước
         regionRepository.delete(region);
     }
 

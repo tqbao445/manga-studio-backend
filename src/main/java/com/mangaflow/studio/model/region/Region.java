@@ -168,17 +168,6 @@ public class Region {
     private Integer sortOrder = 0;
 
     /**
-     * status: Trạng thái hiện tại của region.
-     * Mặc định: PENDING (vừa tạo, chưa có task).
-     * <p>
-     * 📌 Luồng: PENDING → IN_PROGRESS → COMPLETED
-     */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    @Builder.Default
-    private RegionStatus status = RegionStatus.PENDING;
-
-    /**
      * createdAt: Thời điểm tạo region.
      * @Column(updatable = false) → không cho UPDATE sau khi insert.
      * Set tự động trong @PrePersist.

@@ -426,7 +426,7 @@ public class TaskController {
             @AuthenticationPrincipal CustomUserDetails user) {
 
         return ResponseEntity.ok(
-                taskService.reviewSubmission(id, request.getStatus(), user));
+                taskService.reviewSubmission(id, request.getStatus(), request.getNote(), user));
     }
 
     // ════════════════════════════════════════════════════════════════
