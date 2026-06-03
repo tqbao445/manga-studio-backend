@@ -1,7 +1,6 @@
 package com.mangaflow.studio.dto.page.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -16,19 +15,18 @@ import lombok.Data;
  * ══════════════════════════════════════════════════════════════════
  *  Validation:
  * ══════════════════════════════════════════════════════════════════
- *  - label: @NotBlank (bắt buộc khi tạo, có thể null khi update)
+ *  - label: bắt buộc khi tạo (validate trong service), optional khi update
  *  - Các field khác: nullable (optional) — nếu null thì giữ giá trị cũ
  */
 @Data
 @Schema(description = "Request tạo hoặc cập nhật Layer")
 public class LayerRequest {
 
-    @NotBlank(message = "Label is required")
     @Size(max = 255, message = "Label must not exceed 255 characters")
     @Schema(
             description = "Tên hiển thị của layer (vd: 'Background - Tanaka')",
             example = "Background - Tanaka",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED
     )
     private String label;
 
