@@ -6,6 +6,7 @@ import com.mangaflow.studio.dto.page.request.LayerRequest;
 import com.mangaflow.studio.dto.page.response.LayerResponse;
 import com.mangaflow.studio.model.auth.User;
 import com.mangaflow.studio.model.page.Layer;
+import com.mangaflow.studio.model.page.Page;
 import com.mangaflow.studio.repository.page.LayerRepository;
 import com.mangaflow.studio.service.storage.CloudinaryService;
 import lombok.RequiredArgsConstructor;
@@ -171,8 +172,12 @@ public class LayerService {
 
         // Nếu có file → upload lên Cloudinary → set fileUrl + thumbnailUrl
         if (file != null && !file.isEmpty()) {
+            Page page = entityManager.find(Page.class, pageId);
+            if (page == null) {
+                throw new AppException(HttpStatus.NOT_FOUND, "Page not found");
+            }
             CloudinaryService.UploadResult uploadResult = cloudinaryService.uploadLayerImage(
-                    file, user.getId(), pageId);
+                    file, user.getId(), pageId, page.getChapterId());
             layer.setFileUrl(uploadResult.getOriginalImageUrl());
             layer.setThumbnailUrl(uploadResult.getThumbnailUrl());
         }

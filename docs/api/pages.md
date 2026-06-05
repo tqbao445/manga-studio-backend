@@ -69,10 +69,10 @@ Authorization: Bearer <token>
     "id": 1,
     "chapterId": 1,
     "pageNumber": 1,
-    "originalImageUrl": "https://res.cloudinary.com/.../v1234/manga_studio/u3/s0/ch1/p1.jpg",
-    "webImageUrl": "https://res.cloudinary.com/.../c_limit,w_1920/v1234/manga_studio/u3/s0/ch1/p1.jpg",
-    "thumbnailUrl": "https://res.cloudinary.com/.../c_limit,w_320/v1234/manga_studio/u3/s0/ch1/p1.jpg",
-    "publicId": "manga_studio/u3/s0/ch1/p1",
+    "originalImageUrl": "https://res.cloudinary.com/.../v1234/manga_studio/chapters/ch1/pages/p10/original.jpg",
+    "webImageUrl": "https://res.cloudinary.com/.../c_limit,w_1920/v1234/manga_studio/chapters/ch1/pages/p10/original.jpg",
+    "thumbnailUrl": "https://res.cloudinary.com/.../c_limit,w_320/v1234/manga_studio/chapters/ch1/pages/p10/original.jpg",
+    "publicId": "manga_studio/chapters/ch1/pages/p10/original",
     "width": 1200,
     "height": 1800,
     "status": "UPLOADED",
@@ -108,7 +108,7 @@ Content-Type: multipart/form-data
   "originalImageUrl": "https://res.cloudinary.com/...",
   "webImageUrl": "https://res.cloudinary.com/...",
   "thumbnailUrl": "https://res.cloudinary.com/...",
-  "publicId": "manga_studio/u3/s0/ch1/p4",
+  "publicId": "manga_studio/chapters/ch1/pages/p12/original",
   "width": 4200,
   "height": 6000,
   "status": "UPLOADED",
@@ -152,7 +152,7 @@ Content-Type: multipart/form-data
     "originalImageUrl": "...",
     "webImageUrl": "...",
     "thumbnailUrl": "...",
-    "publicId": "manga_studio/u3/s0/ch1/p4",
+    "publicId": "manga_studio/chapters/ch1/pages/p12/original",
     "width": 4200,
     "height": 6000,
     "status": "UPLOADED",
@@ -165,7 +165,7 @@ Content-Type: multipart/form-data
     "originalImageUrl": "...",
     "webImageUrl": "...",
     "thumbnailUrl": "...",
-    "publicId": "manga_studio/u3/s0/ch1/p5",
+    "publicId": "manga_studio/chapters/ch1/pages/p13/original",
     "width": 3840,
     "height": 5400,
     "status": "UPLOADED",
@@ -309,12 +309,28 @@ Content-Type: application/json
 
 ```
 manga_studio/
-  └── u{userId}/              ← thư mục tác giả (VD: u3 = user id 3)
-       └── s{seriesId}/       ← thư mục series (VD: s0 = series id 0, hiện hardcode)
-            └── ch{chapterId}/  ← thư mục chapter (VD: ch1 = chapter id 1)
-                 ├── p1.jpg    ← page 1
-                 ├── p2.jpg    ← page 2
-                 └── ...
+├── chapters/
+│   └── ch{chapterId}/
+│       └── pages/
+│           └── p{pageId}/
+│               ├── original.jpg  ← ảnh page gốc (uploadPage)
+│               ├── final.png     ← ảnh merge layers (uploadPageMerge)
+│               └── layers/       ← ảnh layer con
+│                   └── {uuid}.jpg
+├── series/
+│   └── s{seriesId}/
+│       └── cover.jpg             ← ảnh bìa series
+├── users/
+│   └── u{userId}/
+│       └── avatar.jpg            ← avatar user
+└── tasks/
+    └── t{taskId}/
+        ├── references/           ← file tham khảo (MANGAKA gửi)
+        └── submissions/
+            └── v{version}/
+                ├── result.jpg    ← ảnh kết quả task
+                ├── source.{ext}  ← file nguồn (.psd, .clip)
+                └── attachments/  ← file đính kèm
 ```
 
 Mỗi ảnh có 3 URL:
@@ -324,5 +340,4 @@ Mỗi ảnh có 3 URL:
 | webImageUrl    | w_1920    | Resize 1920px — hiển thị web |
 | thumbnailUrl   | w_320     | Thumbnail 320px — danh sách |
 
-> ⚠️ **Lưu ý:** `getSeriesIdFromChapter()` hiện hardcode `0L` vì chưa có Chapter entity.
-> Cần cập nhật sau khi có Chapter module.
+

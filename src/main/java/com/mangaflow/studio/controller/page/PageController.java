@@ -4,7 +4,6 @@ import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.page.request.PageBatchReorderRequest;
 import com.mangaflow.studio.dto.page.request.PageReorderRequest;
 import com.mangaflow.studio.dto.page.response.PageResponse;
-import com.mangaflow.studio.service.chapter.ChapterService;
 import com.mangaflow.studio.service.page.PageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -101,7 +100,6 @@ public class PageController {
      * 📌 final + @RequiredArgsConstructor → Spring tự inject
      */
     private final PageService pageService;
-    private final ChapterService chapterService;
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET PAGES BY CHAPTER — Lấy danh sách pages
@@ -195,9 +193,7 @@ public class PageController {
             @RequestParam("pageNumber") Integer pageNumber,
             @Parameter(hidden = true)
             @AuthenticationPrincipal CustomUserDetails user) {
-        // Gọi service upload → nhận response → 201 Created
         PageResponse response = pageService.uploadPage(
-                user.getUserId(), getSeriesIdFromChapter(chapterId),
                 chapterId, file, pageNumber);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -260,9 +256,7 @@ public class PageController {
             @RequestParam("files") List<MultipartFile> files,
             @Parameter(hidden = true)
             @AuthenticationPrincipal CustomUserDetails user) {
-        // Gọi service upload batch → nhận list response → 201 Created
         List<PageResponse> responses = pageService.uploadPagesBatch(
-                user.getUserId(), getSeriesIdFromChapter(chapterId),
                 chapterId, files);
         return ResponseEntity.status(HttpStatus.CREATED).body(responses);
     }
@@ -463,7 +457,7 @@ public class PageController {
             @PathVariable Long id,
             @Parameter(hidden = true)
             @AuthenticationPrincipal CustomUserDetails user) {
-        PageResponse response = pageService.mergeLayers(id, user.getUserId());
+        PageResponse response = pageService.mergeLayers(id);
         return ResponseEntity.ok(response);
     }
 
@@ -511,26 +505,8 @@ public class PageController {
             @PathVariable Long id,
             @Parameter(hidden = true)
             @AuthenticationPrincipal CustomUserDetails user) {
-        PageResponse response = pageService.flattenPage(id, user.getUserId());
+        PageResponse response = pageService.flattenPage(id);
         return ResponseEntity.ok(response);
     }
 
-    // ════════════════════════════════════════════════════════════════
-    // PRIVATE HELPER — Lấy seriesId từ chapterId
-    // ════════════════════════════════════════════════════════════════
-
-    /**
-     * Helper tạm thời để lấy seriesId từ chapterId.
-     * <p>
-     * 📌 Hiện tại chưa có Chapter entity nên chưa thể truy vấn
-     * seriesId từ chapterId. Tạm thời hardcode 0L.
-     * <p>
-     * 📌 Khi nào có ChapterService:
-     * → chapterService.getChapterById(chapterId).getSeriesId()
-     * <p>
-     * ⚠️ TODO: Cần cập nhật sau khi có Chapter module
-     */
-    private Long getSeriesIdFromChapter(Long chapterId) {
-        return chapterService.getSeriesIdByChapterId(chapterId);
-    }
 }

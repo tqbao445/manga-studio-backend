@@ -8,7 +8,6 @@ import com.mangaflow.studio.model.page.Page;
 import com.mangaflow.studio.model.page.PageStatus;
 import com.mangaflow.studio.repository.page.LayerRepository;
 import com.mangaflow.studio.repository.page.PageRepository;
-import com.mangaflow.studio.service.chapter.ChapterService;
 import com.mangaflow.studio.service.page.LayerService;
 import com.mangaflow.studio.service.storage.CloudinaryService;
 import lombok.RequiredArgsConstructor;
@@ -85,12 +84,6 @@ public class PageService {
     private final LayerRepository layerRepository;
 
     /**
-     * chapterService: Service để lấy seriesId từ chapterId.
-     * Dùng trong mergeLayers() — xác định Cloudinary folder path.
-     */
-    private final ChapterService chapterService;
-
-    /**
      * layerService: Service xử lý Layer CRUD.
      * Dùng trong flattenPage() — xoá tất cả layers của page (DB + Cloudinary).
      */
@@ -143,66 +136,54 @@ public class PageService {
      *    4. Lưu vào database
      *    5. Map sang DTO và trả về
      *
-     * 📌 MultipartFile:
-     *    File ảnh từ frontend, được Spring chuyển đổi tự động từ HTTP request.
-     *
-     * @param userId     ID của user (tác giả) — lấy từ JWT token
-     * @param seriesId   ID của series — lấy từ URL param
-     * @param chapterId  ID của chapter — lấy từ URL param
+     * @param chapterId  ID của chapter
      * @param file       File ảnh từ frontend
      * @param pageNumber Số thứ tự page trong chapter
      * @return PageResponse page vừa tạo
      * @throws AppException 400 — nếu pageNumber đã tồn tại
      */
-    public PageResponse uploadPage(Long userId, Long seriesId, Long chapterId,
+    public PageResponse uploadPage(Long chapterId,
                                    MultipartFile file, Integer pageNumber) {
         // ── Bước 1: Kiểm tra trùng pageNumber ──
-        // existsByChapterIdAndPageNumber():
-        //   SELECT EXISTS(SELECT 1 FROM pages WHERE chapter_id=? AND page_number=?)
         if (pageRepository.existsByChapterIdAndPageNumber(chapterId, pageNumber)) {
             throw new AppException(HttpStatus.BAD_REQUEST,
                     "Page number " + pageNumber + " already exists in this chapter");
         }
 
-        // ── Bước 2: Upload file lên Cloudinary ──
-        // CloudinaryService.uploadPage():
-        //   - Upload file → nhận: originalUrl, webUrl, thumbUrl, width, height, publicId
-        //   - Nếu lỗi network/file hỏng → CloudinaryService throw RuntimeException
-        CloudinaryService.UploadResult uploadResult = cloudinaryService.uploadPage(
-                file, userId, seriesId, chapterId, pageNumber);
-
-        // ── Bước 3: Tạo Page entity ──
-        // Sử dụng Builder pattern (Lombok):
-        //   Page.builder()
-        //     .chapterId(chapterId)
-        //     .pageNumber(pageNumber)
-        //     .originalImageUrl(uploadResult.getOriginalImageUrl())
-        //     ...
-        //     .build()
-        //
-        // Lưu ý:
-        //   - status: mặc định UPLOADED (đã set ở Entity)
-        //   - createdAt, updatedAt: tự động set trong @PrePersist
+        // ── Bước 2: Tạo Page entity trước (chưa có URLs) → có pageId ──
         Page page = Page.builder()
                 .chapterId(chapterId)
                 .pageNumber(pageNumber)
-                .originalImageUrl(uploadResult.getOriginalImageUrl())
-                .webImageUrl(uploadResult.getWebImageUrl())
-                .thumbnailUrl(uploadResult.getThumbnailUrl())
-                .publicId(uploadResult.getPublicId())
-                .width(uploadResult.getWidth())
-                .height(uploadResult.getHeight())
                 .status(PageStatus.UPLOADED)
+                .originalImageUrl("")
+                .webImageUrl("")
+                .publicId("pending")
+                .width(0)
+                .height(0)
                 .build();
-
-        // ── Bước 4: Lưu vào database ──
-        // pageRepository.save(page):
-        //   - INSERT INTO pages (...) VALUES (...)
-        //   - Trả về Page entity với id đã được sinh
         Page savedPage = pageRepository.save(page);
 
-        // ── Bước 5: Map sang DTO và trả về ──
-        return pageMapper.toResponse(savedPage);
+        try {
+            // ── Bước 3: Upload file lên Cloudinary với pageId ──
+            CloudinaryService.UploadResult uploadResult = cloudinaryService.uploadPage(
+                    file, chapterId, savedPage.getId());
+
+            // ── Bước 4: Cập nhật page với URLs từ Cloudinary ──
+            savedPage.setOriginalImageUrl(uploadResult.getOriginalImageUrl());
+            savedPage.setWebImageUrl(uploadResult.getWebImageUrl());
+            savedPage.setThumbnailUrl(uploadResult.getThumbnailUrl());
+            savedPage.setPublicId(uploadResult.getPublicId());
+            savedPage.setWidth(uploadResult.getWidth());
+            savedPage.setHeight(uploadResult.getHeight());
+            pageRepository.save(savedPage);
+
+            return pageMapper.toResponse(savedPage);
+
+        } catch (Exception e) {
+            // Cloudinary lỗi → xoá page rác trong DB
+            pageRepository.delete(savedPage);
+            throw e;
+        }
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -231,24 +212,19 @@ public class PageService {
      *    Danh sách files từ frontend. Frontend dùng <input type="file" multiple>
      *    để chọn nhiều file cùng lúc.
      *
-     * @param userId    ID của user (tác giả) — lấy từ JWT
-     * @param seriesId  ID của series
      * @param chapterId ID của chapter
      * @param files     Mảng các file ảnh (không cần gửi pageNumbers)
      * @return List<PageResponse> danh sách pages vừa tạo (đã auto-assign pageNumber)
      */
-    public List<PageResponse> uploadPagesBatch(Long userId, Long seriesId, Long chapterId,
+    public List<PageResponse> uploadPagesBatch(Long chapterId,
                                                 List<MultipartFile> files) {
         // ── Bước 1: Tính pageNumber bắt đầu ──
-        // Lấy tất cả pages trong chapter, sắp xếp tăng dần → lấy page số lớn nhất
         List<Page> chapterPages = pageRepository.findByChapterIdOrderByPageNumberAsc(chapterId);
 
         int nextPageNumber;
         if (chapterPages.isEmpty()) {
-            // Chapter chưa có page nào → bắt đầu từ 1
             nextPageNumber = 1;
         } else {
-            // Lấy page cuối (pageNumber lớn nhất) → +1
             Page lastPage = chapterPages.get(chapterPages.size() - 1);
             nextPageNumber = lastPage.getPageNumber() + 1;
         }
@@ -257,11 +233,8 @@ public class PageService {
         List<PageResponse> results = new ArrayList<>();
 
         for (int i = 0; i < files.size(); i++) {
-            // Gán pageNumber = nextPageNumber + i
-            // VD: nextPageNumber = 4 → file thứ 2 (i=1) → pageNumber = 5
             PageResponse response = uploadPage(
-                    userId, seriesId, chapterId,
-                    files.get(i), nextPageNumber + i);
+                    chapterId, files.get(i), nextPageNumber + i);
             results.add(response);
         }
 
@@ -487,29 +460,22 @@ public class PageService {
      *    - RenderingHints.INTERPOLATION_BILINEAR: mượt ảnh
      *
      * @param pageId ID của page cần merge layers
-     * @param userId ID của MANGAKA — dùng cho Cloudinary folder path
      * @return PageResponse page đã cập nhật finalImageUrl
      * @throws AppException 404 — nếu không tìm thấy page
      */
     @Transactional
-    public PageResponse mergeLayers(Long pageId, Long userId) {
+    public PageResponse mergeLayers(Long pageId) {
         // ── Bước 1: Tìm page ──
         Page page = pageRepository.findById(pageId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Page not found with id: " + pageId));
 
         // ── Bước 2: Lấy layers visible của page (từ dưới lên) ──
-        // Chỉ lấy layer visible == true và có fileUrl
-        // sorted by sortOrder ASC — layer 0 = dưới cùng
         List<Layer> layers = layerRepository
                 .findByPageIdOrderBySortOrderAsc(pageId)
                 .stream()
                 .filter(l -> l.isVisible() && l.getFileUrl() != null && !l.getFileUrl().isBlank())
                 .toList();
-
-        // ── Bước 3: Lấy seriesId từ chapter ──
-        // Cần cho Cloudinary folder path: .../s{seriesId}/ch{chapterId}/p{pageNumber}/merge
-        Long seriesId = chapterService.getSeriesIdByChapterId(page.getChapterId());
 
         try {
             // ── Bước 4: Download ảnh nền (base page) ──
@@ -571,10 +537,9 @@ public class PageService {
                 }
             }
 
-            // ── Bước 7: Upload ảnh đã merge lên Cloudinary ──
+            // ── Bước 6: Upload ảnh đã merge lên Cloudinary ──
             CloudinaryService.UploadPageMergeResult mergeResult = cloudinaryService.uploadPageMerge(
-                    compositeImage, userId, seriesId,
-                    page.getChapterId(), page.getPageNumber());
+                    compositeImage, page.getChapterId(), page.getId());
 
             // ── Bước 8: Cập nhật URLs của page ──
             page.setFinalImageUrl(mergeResult.getFinalImageUrl());
@@ -611,13 +576,12 @@ public class PageService {
      *    6. Lưu page và trả về
      *
      * @param pageId ID của page cần flatten
-     * @param userId ID của MANGAKA — dùng cho Cloudinary folder path
      * @return PageResponse page đã cập nhật originalImageUrl
      * @throws AppException 404 — nếu không tìm thấy page
      */
-    public PageResponse flattenPage(Long pageId, Long userId) {
+    public PageResponse flattenPage(Long pageId) {
         // ── Bước 1: Gọi mergeLayers — composite + upload + set finalImageUrl ──
-        mergeLayers(pageId, userId);
+        mergeLayers(pageId);
 
         // ── Bước 2: Fetch lại page sau khi merge ──
         Page page = pageRepository.findById(pageId)

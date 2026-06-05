@@ -116,36 +116,32 @@ public class CloudinaryService {
      *    5. Trả về UploadResult chứa URLs + kích thước
      *
      * 📌 folder + filename được tạo theo cấu trúc:
-     *    folder    = manga_studio/u{userId}/s{seriesId}/ch{chapterId}
-     *    public_id = p{pageNumber}
+     *    folder    = manga_studio/chapters/ch{chapterId}/pages/p{pageId}
+     *    public_id = "original" (tên cố định)
      *
-     *    Ví dụ: userId=3, seriesId=1, chapterId=5, pageNumber=1
-     *    → folder = "manga_studio/u3/s1/ch5"
-     *    → public_id = "p1"
-     *    → Cloudinary tự tạo thư mục + lưu file như:
-     *       📁 manga_studio/ → 📁 u3/ → 📁 s1/ → 📁 ch5/ → 🖼️ p1.jpg
+     *    Ví dụ: chapterId=5, pageId=10
+     *    → folder = "manga_studio/chapters/ch5/pages/p10"
+     *    → public_id = "original"
+     *    → Cloudinary lưu file tại: .../ch5/pages/p10/original.jpg
      *
-     * @param file        File ảnh từ frontend (MultipartFile)
-     * @param userId      ID của user (tác giả) — lấy từ JWT token
-     * @param seriesId    ID của series — từ URL param
-     * @param chapterId   ID của chapter — từ URL param
-     * @param pageNumber  Số thứ tự page trong chapter
+     * @param file       File ảnh từ frontend (MultipartFile)
+     * @param chapterId  ID của chapter — từ URL param
+     * @param pageId     ID của page — không đổi, tránh ảnh hưởng khi reorder
      * @return UploadResult chứa URLs + kích thước + publicId
      */
-    public UploadResult uploadPage(MultipartFile file, Long userId, Long seriesId, Long chapterId, Integer pageNumber) {
+    public UploadResult uploadPage(MultipartFile file, Long chapterId, Long pageId) {
         try {
             // ── Xây dựng folder + filename ──
             // Dùng folder param để Cloudinary luôn tạo thư mục,
             // không cần bật "Auto-create folders" trong Settings.
             //
             // Cấu trúc thư mục:
-            //   manga_studio/u{userId}/s{seriesId}/ch{chapterId}/p{pageNumber}.jpg
+            //   manga_studio/chapters/ch{chapterId}/pages/p{pageId}/original.jpg
             //
-            // folder = "manga_studio/u3/s1/ch5"
-            // public_id = "p1" (chỉ tên file, không có path)
-            String folder = "manga_studio/u" + userId + "/s" + seriesId
-                    + "/ch" + chapterId;
-            String filename = "p" + pageNumber;
+            // folder = "manga_studio/chapters/ch5/pages/p10"
+            // public_id = "original" (tên file cố định, ghi đè khi re-upload)
+            String folder = "manga_studio/chapters/ch" + chapterId
+                    + "/pages/p" + pageId;
 
             // ── Bước 1: Upload file lên Cloudinary ──
             // folder + public_id → Cloudinary tự tạo thư mục nếu chưa có
@@ -153,7 +149,7 @@ public class CloudinaryService {
                     file.getBytes(),
                     ObjectUtils.asMap(
                             "folder", folder,
-                            "public_id", filename,
+                            "public_id", "original",
                             "resource_type", "image",
                             "overwrite", true
                     )
@@ -161,7 +157,7 @@ public class CloudinaryService {
 
             // ── Bước 2: Đọc kết quả từ Cloudinary ──
             // Cloudinary trả về full publicId (folder + filename)
-            // VD: "manga_studio/u3/s1/ch5/p1"
+            // VD: "manga_studio/chapters/ch5/pages/p10/original"
             String resultPublicId = (String) uploadResult.get("public_id");
             String version = String.valueOf(uploadResult.get("version"));
             String format = (String) uploadResult.get("format");
@@ -282,14 +278,14 @@ public class CloudinaryService {
     public String uploadCover(MultipartFile file, Long userId, Long seriesId) {
         try {
             // ── Xây dựng folder + public_id ──
-            // folder = "manga_studio/u{userId}/s{seriesId}/cover"
-            // public_id = "cover" (tên file cố định, không đổi)
+            // folder = "manga_studio/series/s{seriesId}"
+            // public_id = "cover" (tên file cố định, ghi đè khi update)
             //
-            // Ví dụ: userId=3, seriesId=1
-            // → folder = "manga_studio/u3/s1/cover"
+            // Ví dụ: seriesId=1
+            // → folder = "manga_studio/series/s1"
             // → public_id = "cover"
-            // → Cloudinary lưu file tại: manga_studio/u3/s1/cover/cover.jpg
-            String folder = "manga_studio/u" + userId + "/s" + seriesId + "/cover";
+            // → Cloudinary lưu file tại: manga_studio/series/s1/cover.jpg
+            String folder = "manga_studio/series/s" + seriesId;
 
             // ── Upload file lên Cloudinary ──
             Map<?, ?> result = cloudinary.uploader().upload(
@@ -305,7 +301,7 @@ public class CloudinaryService {
 
             // ── Lấy URL từ kết quả trả về ──
             // Cloudinary trả về URL dạng:
-            // https://res.cloudinary.com/{cloudName}/image/upload/c_fill,w_600/v{version}/manga_studio/u{userId}/s{seriesId}/cover/cover.jpg
+            // https://res.cloudinary.com/{cloudName}/image/upload/c_fill,w_600/v{version}/manga_studio/series/s{seriesId}/cover.jpg
             return (String) result.get("url");
 
         } catch (IOException e) {
@@ -337,7 +333,7 @@ public class CloudinaryService {
      */
     public String uploadAvatar(MultipartFile file, Long userId) {
         try {
-            String folder = "manga_studio/u" + userId + "/profile";
+            String folder = "manga_studio/users/u" + userId;
 
             Map<?, ?> result = cloudinary.uploader().upload(
                     file.getBytes(),
@@ -450,14 +446,14 @@ public class CloudinaryService {
     public UploadResult uploadTaskImage(MultipartFile file, Long userId, Long taskId, int version) {
         try {
             // ── Xây dựng folder + public_id ──
-            // folder = "manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}"
+            // folder = "manga_studio/tasks/t{taskId}/submissions/v{version}"
             // public_id = "result" (tên file cố định)
             //
-            // Ví dụ: userId=5, taskId=15, version=1
-            // → folder = "manga_studio/u5/tasks/t15/submissions/v1"
+            // Ví dụ: taskId=15, version=1
+            // → folder = "manga_studio/tasks/t15/submissions/v1"
             // → public_id = "result"
-            // → Cloudinary lưu file tại: manga_studio/u5/tasks/t15/submissions/v1/result.jpg
-            String folder = "manga_studio/u" + userId + "/tasks/t" + taskId
+            // → Cloudinary lưu file tại: manga_studio/tasks/t15/submissions/v1/result.jpg
+            String folder = "manga_studio/tasks/t" + taskId
                     + "/submissions/v" + version;
 
             // ── Upload file lên Cloudinary ──
@@ -528,14 +524,14 @@ public class CloudinaryService {
     public String uploadTaskRawFile(MultipartFile file, Long userId, Long taskId, int version) {
         try {
             // ── Xây dựng folder + public_id ──
-            // folder = "manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}"
+            // folder = "manga_studio/tasks/t{taskId}/submissions/v{version}"
             // public_id = "source" (tên file cố định)
             //
-            // Ví dụ: userId=5, taskId=15, version=1, file=source.psd
-            // → folder = "manga_studio/u5/tasks/t15/submissions/v1"
+            // Ví dụ: taskId=15, version=1, file=source.psd
+            // → folder = "manga_studio/tasks/t15/submissions/v1"
             // → public_id = "source"
-            // → Cloudinary lưu file tại: manga_studio/u5/tasks/t15/submissions/v1/source.psd
-            String folder = "manga_studio/u" + userId + "/tasks/t" + taskId
+            // → Cloudinary lưu file tại: manga_studio/tasks/t15/submissions/v1/source.psd
+            String folder = "manga_studio/tasks/t" + taskId
                     + "/submissions/v" + version;
 
             // ── Lấy tên file gốc để xác định đuôi mở rộng ──
@@ -571,7 +567,7 @@ public class CloudinaryService {
      * (ảnh tham khảo, tài liệu hướng dẫn...).
      *
      * 📌 Cấu trúc thư mục:
-     *    manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}/attachments/{filename}
+     *    manga_studio/tasks/t{taskId}/submissions/v{version}/attachments/{filename}
      *
      * 📌 resource_type = "raw":
      *    Attachment có thể là ảnh hoặc file bất kỳ (pdf, doc...).
@@ -586,9 +582,9 @@ public class CloudinaryService {
     public String uploadTaskAttachment(MultipartFile file, Long userId, Long taskId, int version) {
         try {
             // ── Xây dựng folder + public_id ──
-            // folder = "manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}/attachments"
+            // folder = "manga_studio/tasks/t{taskId}/submissions/v{version}/attachments"
             // public_id = tên file gốc (giữ nguyên để dễ nhận biết)
-            String folder = "manga_studio/u" + userId + "/tasks/t" + taskId
+            String folder = "manga_studio/tasks/t" + taskId
                     + "/submissions/v" + version + "/attachments";
 
             String originalFilename = file.getOriginalFilename();
@@ -624,7 +620,7 @@ public class CloudinaryService {
      *    trong thư mục attachments của task.
      * <p>
      * 📌 Cấu trúc thư mục:
-     *    manga_studio/u{userId}/tasks/t{taskId}/attachments/{filename}
+     *    manga_studio/tasks/t{taskId}/references/{filename}
      *
      * @param file   File từ frontend (MultipartFile)
      * @param userId ID của MANGAKA — lấy từ JWT token
@@ -633,7 +629,7 @@ public class CloudinaryService {
      */
     public String uploadTaskReference(MultipartFile file, Long userId, Long taskId) {
         try {
-            String folder = "manga_studio/u" + userId + "/tasks/t" + taskId + "/attachments";
+            String folder = "manga_studio/tasks/t" + taskId + "/references";
 
             String originalFilename = file.getOriginalFilename();
             String publicId = originalFilename != null && originalFilename.contains(".")
@@ -686,22 +682,24 @@ public class CloudinaryService {
      *    - webImageUrl:       ảnh resize 1920px — hiển thị trên web
      *    - thumbnailUrl:      ảnh thumbnail 320px — preview trong LayerPanel
      *
-     * @param file   File ảnh từ frontend (MultipartFile)
-     * @param userId ID của MANGAKA — lấy từ JWT token
-     * @param pageId ID của page chứa layer
+     * @param file       File ảnh từ frontend (MultipartFile)
+     * @param userId     ID của MANGAKA — lấy từ JWT token
+     * @param pageId     ID của page chứa layer
+     * @param chapterId  ID của chapter chứa page
      * @return UploadResult chứa URLs + kích thước + publicId
      */
-    public UploadResult uploadLayerImage(MultipartFile file, Long userId, Long pageId) {
+    public UploadResult uploadLayerImage(MultipartFile file, Long userId, Long pageId,
+                                          Long chapterId) {
         try {
             // ── Xây dựng folder + public_id (UUID ngẫu nhiên) ──
-            // folder = "manga_studio/u{userId}/pages/p{pageId}/layers"
-            // public_id = UUID ngẫu nhiên (vd: "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+            // folder = "manga_studio/chapters/ch{chapterId}/pages/p{pageId}/layers"
+            // public_id = UUID ngẫu nhiên
             //
-            // Ví dụ: userId=3, pageId=10
-            // → folder = "manga_studio/u3/pages/p10/layers"
+            // Ví dụ: chapterId=5, pageId=10
+            // → folder = "manga_studio/chapters/ch5/pages/p10/layers"
             // → public_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-            // → Cloudinary lưu file tại: .../layers/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jpg
-            String folder = "manga_studio/u" + userId + "/pages/p" + pageId + "/layers";
+            String folder = "manga_studio/chapters/ch" + chapterId
+                    + "/pages/p" + pageId + "/layers";
             String publicId = java.util.UUID.randomUUID().toString();
 
             // ── Upload file lên Cloudinary ──
@@ -754,51 +752,30 @@ public class CloudinaryService {
      *    (composite layers bằng Graphics2D + AlphaComposite).
      *
      * 📌 Cấu trúc thư mục:
-     *    manga_studio/u{userId}/s{seriesId}/ch{chapterId}/p{pageNumber}/merge/final.jpg
-     *
-     *    Giải thích từng cấp:
-     *    - manga_studio        : thư mục gốc của dự án (cố định)
-     *    - u{userId}           : user ID của tác giả (vd: u3 = user id = 3)
-     *    - s{seriesId}         : series ID (vd: s1 = series id = 1)
-     *    - ch{chapterId}       : chapter ID (vd: ch5 = chapter id = 5)
-     *    - p{pageNumber}       : số thứ tự page (vd: p1 = page số 1)
-     *    - merge/final.jpg     : ảnh kết quả merge, luôn có tên "final"
-     *
-     * 📌 overwrite = true:
-     *    Mỗi lần MANGAKA bấm "Merge & Export" → gọi lại API merge.
-     *    Backend composite lại từ đầu → upload ghi đè file cũ.
-     *    → Không sinh ra file rác trên Cloudinary.
-     *
-     * 📕 URL trả về là ảnh gốc (không transform) — frontend có thể
-     *    tự thêm transformation nếu cần resize hiển thị.
+     *    manga_studio/chapters/ch{chapterId}/pages/p{pageId}/final.png
      *
      * @param image      BufferedImage đã composite xong (Graphics2D)
-     * @param userId     ID của user (tác giả) — lấy từ Page → Chapter → Series
-     * @param seriesId   ID của series
      * @param chapterId  ID của chapter
-     * @param pageNumber Số thứ tự page trong chapter
-     * @return URL đầy đủ của ảnh merge trên Cloudinary
-     *         (vd: https://res.cloudinary.com/.../merge/final.jpg)
+     * @param pageId     ID của page — không đổi, tránh ảnh hưởng khi reorder
+     * @return UploadPageMergeResult chứa URLs
      */
-    public UploadPageMergeResult uploadPageMerge(BufferedImage image, Long userId, Long seriesId,
-                                                  Long chapterId, Integer pageNumber) {
+    public UploadPageMergeResult uploadPageMerge(BufferedImage image,
+                                                  Long chapterId, Long pageId) {
         try {
-            String folder = "manga_studio/u" + userId + "/s" + seriesId
-                    + "/ch" + chapterId + "/p" + pageNumber + "/merge";
+            String folder = "manga_studio/chapters/ch" + chapterId
+                    + "/pages/p" + pageId;
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ImageIO.write(image, "png", baos);
             byte[] imageBytes = baos.toByteArray();
 
-            // Dùng timestamp làm unique public_id để tránh Cloudinary overwrite bug
-            String uniqueId = "final_" + System.currentTimeMillis();
-
             Map<?, ?> result = cloudinary.uploader().upload(
                     imageBytes,
                     ObjectUtils.asMap(
                             "folder", folder,
-                            "public_id", uniqueId,
-                            "resource_type", "image"
+                            "public_id", "final",
+                            "resource_type", "image",
+                            "overwrite", true
                     )
             );
 
