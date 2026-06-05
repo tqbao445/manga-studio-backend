@@ -780,49 +780,46 @@ public class CloudinaryService {
      * @return URL đầy đủ của ảnh merge trên Cloudinary
      *         (vd: https://res.cloudinary.com/.../merge/final.jpg)
      */
-    public String uploadPageMerge(BufferedImage image, Long userId, Long seriesId,
-                                   Long chapterId, Integer pageNumber) {
+    public UploadPageMergeResult uploadPageMerge(BufferedImage image, Long userId, Long seriesId,
+                                                  Long chapterId, Integer pageNumber) {
         try {
-            // ── Xây dựng folder + public_id ──
-            // folder = "manga_studio/u{userId}/s{seriesId}/ch{chapterId}/p{pageNumber}/merge"
-            // public_id = "final" (tên file cố định)
-            //
-            // Ví dụ: userId=3, seriesId=1, chapterId=5, pageNumber=1
-            // → folder = "manga_studio/u3/s1/ch5/p1/merge"
-            // → public_id = "final"
-            // → Cloudinary lưu file tại: manga_studio/u3/s1/ch5/p1/merge/final.jpg
             String folder = "manga_studio/u" + userId + "/s" + seriesId
                     + "/ch" + chapterId + "/p" + pageNumber + "/merge";
 
-            // ── Chuyển BufferedImage → byte[] ──
-            // ImageIO.write(): ghi BufferedImage vào OutputStream dưới định dạng PNG
-            // Dùng PNG để giữ nguyên chất lượng và độ trong suốt (alpha channel).
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ImageIO.write(image, "png", baos);
             byte[] imageBytes = baos.toByteArray();
 
-            // ── Upload file lên Cloudinary ──
-            // resource_type = "image": Cloudinary xử lý như ảnh
-            // overwrite = true: ghi đè nếu đã có file merge cũ
+            // Dùng timestamp làm unique public_id để tránh Cloudinary overwrite bug
+            String uniqueId = "final_" + System.currentTimeMillis();
+
             Map<?, ?> result = cloudinary.uploader().upload(
                     imageBytes,
                     ObjectUtils.asMap(
                             "folder", folder,
-                            "public_id", "final",
-                            "resource_type", "image",
-                            "overwrite", true
+                            "public_id", uniqueId,
+                            "resource_type", "image"
                     )
             );
 
-            // ── Trả về URL của ảnh merge ──
-            // Cloudinary trả về URL mặc định (không transform)
-            return (String) result.get("url");
+            String secureUrl = (String) result.get("secure_url");
+            String cloudName = (String) cloudinary.config.cloudName;
+            String resultPublicId = (String) result.get("public_id");
+            String version = String.valueOf(result.get("version"));
+            String format = (String) result.get("format");
+            if (format == null) format = "png";
+
+            System.out.println("[Cloudinary] uploadPageMerge — secure_url: " + secureUrl
+                    + " | public_id: " + resultPublicId + " | version: " + version + " | format: " + format);
+
+            String webUrl = secureUrl.replaceFirst("/image/upload/",
+                    "/image/upload/c_limit,w_1920/");
+            String thumbUrl = secureUrl.replaceFirst("/image/upload/",
+                    "/image/upload/c_limit,w_320/");
+
+            return new UploadPageMergeResult(secureUrl, webUrl, thumbUrl);
 
         } catch (IOException e) {
-            // IOException khi:
-            //   - ImageIO.write() lỗi (BufferedImage hỏng)
-            //   - Mạng lỗi khi gọi Cloudinary API
-            //   - Cloudinary server trả về lỗi
             throw new RuntimeException("Failed to upload merged image to Cloudinary", e);
         }
     }
@@ -861,5 +858,12 @@ public class CloudinaryService {
         int width;
         int height;
         String publicId;
+    }
+
+    @Value
+    public static class UploadPageMergeResult {
+        String finalImageUrl;
+        String webImageUrl;
+        String thumbnailUrl;
     }
 }

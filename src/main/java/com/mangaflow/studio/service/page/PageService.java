@@ -491,6 +491,7 @@ public class PageService {
      * @return PageResponse page đã cập nhật finalImageUrl
      * @throws AppException 404 — nếu không tìm thấy page
      */
+    @Transactional
     public PageResponse mergeLayers(Long pageId, Long userId) {
         // ── Bước 1: Tìm page ──
         Page page = pageRepository.findById(pageId)
@@ -548,18 +549,42 @@ public class PageService {
                         compositeImage.getWidth(), compositeImage.getHeight(), null);
 
                 g2d.dispose();
+
+                // Giải phóng bộ nhớ native của layerImage ngay sau khi dùng
+                layerImage.flush();
+                if (compositeImage != baseImage) {
+                    compositeImage.flush();
+                }
+
                 compositeImage = merged;
             }
 
-            // ── Bước 6: Upload ảnh đã merge lên Cloudinary ──
-            String mergeUrl = cloudinaryService.uploadPageMerge(
+            // Giải phóng baseImage
+            baseImage.flush();
+
+            // ── Bước 6: Xoá ảnh merge cũ (nếu có) ──
+            if (page.getFinalImageUrl() != null) {
+                try {
+                    cloudinaryService.deleteImageByUrl(page.getFinalImageUrl());
+                } catch (Exception ignored) {
+                    // Không throw — ưu tiên upload merge mới
+                }
+            }
+
+            // ── Bước 7: Upload ảnh đã merge lên Cloudinary ──
+            CloudinaryService.UploadPageMergeResult mergeResult = cloudinaryService.uploadPageMerge(
                     compositeImage, userId, seriesId,
                     page.getChapterId(), page.getPageNumber());
 
-            // ── Bước 7: Cập nhật finalImageUrl ──
-            page.setFinalImageUrl(mergeUrl);
+            // ── Bước 8: Cập nhật URLs của page ──
+            page.setFinalImageUrl(mergeResult.getFinalImageUrl());
+            page.setWebImageUrl(mergeResult.getWebImageUrl());
+            page.setThumbnailUrl(mergeResult.getThumbnailUrl());
 
-            // ── Bước 8: Lưu page và trả về ──
+            // Giải phóng merge result sau upload
+            compositeImage.flush();
+
+            // ── Bước 9: Lưu page và trả về ──
             Page savedPage = pageRepository.save(page);
             return pageMapper.toResponse(savedPage);
 
