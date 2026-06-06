@@ -5,6 +5,7 @@ import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.series.mapper.SeriesMapper;
 import com.mangaflow.studio.dto.series.request.ApproveRequest;
 import com.mangaflow.studio.dto.series.request.RejectRequest;
+import com.mangaflow.studio.dto.series.request.TantouRejectRequest;
 import com.mangaflow.studio.dto.series.request.UpdateStatusRequest;
 import com.mangaflow.studio.dto.series.response.SeriesResponse;
 import com.mangaflow.studio.model.auth.User;
@@ -12,6 +13,7 @@ import com.mangaflow.studio.model.series.Series;
 import com.mangaflow.studio.model.series.SeriesStatus;
 import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
+import com.mangaflow.studio.service.common.WebSocketService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -31,24 +33,33 @@ import org.springframework.transaction.annotation.Transactional;
  *  State Machine (biểu đồ trạng thái):
  * ═══════════════════════════════════════════════════════
  *
- *         ┌──────────┐
- *         │  DRAFT   │ ◄────────────── reject()
- *         └────┬─────┘
- *              │ submitForApproval()
- *              ▼
- *    ┌─────────────────┐
- *    │PENDING_APPROVAL │
- *    └──┬──────────┬───┘
- *       │ approve()│ reject()
- *       ▼          ▼
- *   ┌────────┐ ┌───────┐
- *   │ONGOING │ │ DRAFT │ (quay lại)
- *   └───┬────┘ └───────┘
- *       │ updateStatus()
- *       ├────► HIATUS
- *       ├────► AT_RISK
- *       ├────► CANCELLED
- *       └────► COMPLETED
+ *                          ┌──────────┐
+ *                    ┌──── │  DRAFT   │ ◄────── tantouReject()
+ *                    │     └────┬─────┘
+ *                    │          │ submitToTantou()
+ *                    │          ▼
+ *                    │   ┌───────────────┐
+ *                    │   │ PENDING_TANTOU│
+ *                    │   └──┬────────┬───┘
+ *                    │      │ tantou │ tantou
+ *                    │      │Approve │ Reject
+ *                    │      ▼        ▼
+ *                    │ ┌─────────────────┐
+ *                    │ │PENDING_BOARD_VOTE│
+ *                    │ └──┬──────────┬───┘
+ *                    │    │ EB       │ EB
+ *                    │    │finalize  │ finalize
+ *                    │    ▼          ▼
+ *                    │ ┌────────┐ ┌───────┐
+ *                    │ │ONGOING │ │ DRAFT │
+ *                    │ └───┬────┘ └───────┘
+ *                    │     │ updateStatus()
+ *                    │     ├────► HIATUS
+ *                    │     ├────► AT_RISK
+ *                    │     ├────► CANCELLED
+ *                    │     └────► COMPLETED
+ *                    │
+ *              (Legacy path: DRAFT → PENDING_APPROVAL → ONGOING/DRAFT)
  *
  * 📌 Các trạng thái không có transition:
  *    APPROVED, REJECTED — dự phòng cho tương lai, chưa dùng.
@@ -79,6 +90,12 @@ public class SeriesWorkflowService {
      */
     private final SeriesMapper seriesMapper;
 
+    /**
+     * WebSocketService: Push real-time notifications khi có sự kiện
+     * submit, approve, reject...
+     */
+    private final WebSocketService webSocketService;
+
     // ════════════════════════════════════════════════════════════
     // 1. SUBMIT — Gửi duyệt (Mangaka)
     // ════════════════════════════════════════════════════════════
@@ -108,22 +125,149 @@ public class SeriesWorkflowService {
      */
     @Transactional
     public SeriesResponse submitForApproval(Long id, CustomUserDetails user) {
-        // Kiểm tra ownership: series này có thuộc về user không?
         Series series = seriesRepository.findByIdAndMangakaId(id, user.getUserId())
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Series not found or not owned by you"));
 
-        // Chỉ DRAFT mới có thể submit lên PENDING_APPROVAL
         if (series.getStatus() != SeriesStatus.DRAFT) {
             throw new AppException(HttpStatus.BAD_REQUEST,
                     "Only DRAFT series can be submitted");
         }
 
-        // Chuyển trạng thái
         series.setStatus(SeriesStatus.PENDING_APPROVAL);
 
-        // Lưu + MapStruct Series → SeriesResponse
         return seriesMapper.toResponse(seriesRepository.save(series));
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 1b. SUBMIT TO TANTOU — Gửi cho Tantou Editor (Mangaka)
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Gửi series cho Tantou Editor phê duyệt.
+     * DRAFT → PENDING_TANTOU
+     *
+     * Điều kiện:
+     * - Series phải DRAFT.
+     * - Series phải có tantouEditor != null.
+     *
+     * @param id   ID series
+     * @param user Mangaka đang đăng nhập
+     * @return SeriesResponse với status = PENDING_TANTOU
+     */
+    @Transactional
+    public SeriesResponse submitToTantou(Long id, CustomUserDetails user) {
+        Series series = seriesRepository.findByIdAndMangakaId(id, user.getUserId())
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
+                        "Series not found or not owned by you"));
+
+        if (series.getStatus() != SeriesStatus.DRAFT) {
+            throw new AppException(HttpStatus.BAD_REQUEST,
+                    "Only DRAFT series can be submitted to tantou");
+        }
+
+        if (series.getTantouEditor() == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST,
+                    "Series must have a tantou editor assigned before submission");
+        }
+
+        series.setStatus(SeriesStatus.PENDING_TANTOU);
+        SeriesResponse response = seriesMapper.toResponse(seriesRepository.save(series));
+
+        webSocketService.sendToUser(series.getTantouEditor().getId(),
+                "TANTOU_REVIEW_REQUIRED",
+                "Series \"" + series.getTitle() + "\" has been submitted for your review");
+
+        return response;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 2b. TANTOU APPROVE — Tantou đồng ý (TANTOU_EDITOR)
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Tantou Editor phê duyệt series.
+     * PENDING_TANTOU → PENDING_BOARD_VOTE
+     *
+     * Điều kiện:
+     * - Series phải PENDING_TANTOU.
+     * - User gọi phải là tantouEditor của series.
+     *
+     * @param id   ID series
+     * @param user Tantou đang đăng nhập
+     * @return SeriesResponse với status = PENDING_BOARD_VOTE
+     */
+    @Transactional
+    public SeriesResponse tantouApprove(Long id, CustomUserDetails user) {
+        Series series = seriesRepository.findById(id)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Series not found"));
+
+        if (series.getStatus() != SeriesStatus.PENDING_TANTOU) {
+            throw new AppException(HttpStatus.BAD_REQUEST,
+                    "Series is not pending tantou review");
+        }
+
+        if (series.getTantouEditor() == null || !series.getTantouEditor().getId().equals(user.getUserId())) {
+            throw new AppException(HttpStatus.FORBIDDEN,
+                    "You are not the assigned tantou editor for this series");
+        }
+
+        series.setStatus(SeriesStatus.PENDING_BOARD_VOTE);
+        SeriesResponse response = seriesMapper.toResponse(seriesRepository.save(series));
+
+        webSocketService.sendToUser(series.getMangaka().getId(),
+                "TANTOU_APPROVED",
+                "Series \"" + series.getTitle() + "\" has been approved by your tantou editor");
+
+        return response;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 2c. TANTOU REJECT — Tantou từ chối (TANTOU_EDITOR)
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Tantou Editor từ chối series, đưa về DRAFT.
+     * PENDING_TANTOU → DRAFT
+     *
+     * Điều kiện:
+     * - Series phải PENDING_TANTOU.
+     * - User gọi phải là tantouEditor của series.
+     *
+     * @param id      ID series
+     * @param request chứa reason (optional)
+     * @param user    Tantou đang đăng nhập
+     * @return SeriesResponse với status = DRAFT
+     */
+    @Transactional
+    public SeriesResponse tantouReject(Long id, TantouRejectRequest request, CustomUserDetails user) {
+        Series series = seriesRepository.findById(id)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Series not found"));
+
+        if (series.getStatus() != SeriesStatus.PENDING_TANTOU) {
+            throw new AppException(HttpStatus.BAD_REQUEST,
+                    "Series is not pending tantou review");
+        }
+
+        if (series.getTantouEditor() == null || !series.getTantouEditor().getId().equals(user.getUserId())) {
+            throw new AppException(HttpStatus.FORBIDDEN,
+                    "You are not the assigned tantou editor for this series");
+        }
+
+        series.setStatus(SeriesStatus.DRAFT);
+        SeriesResponse response = seriesMapper.toResponse(seriesRepository.save(series));
+
+        String reason = request != null ? request.getReason() : null;
+        String message = "Series \"" + series.getTitle() + "\" has been rejected by your tantou editor";
+        if (reason != null && !reason.isBlank()) {
+            message += ": " + reason;
+        }
+
+        webSocketService.sendToUser(series.getMangaka().getId(),
+                "TANTOU_REJECTED",
+                message);
+
+        return response;
     }
 
     // ════════════════════════════════════════════════════════════
@@ -299,10 +443,13 @@ public class SeriesWorkflowService {
      *    │ AT_RISK  │ CANCELLED    │ Huỷ                          │
      *    └──────────┴──────────────┴──────────────────────────────┘
      *
-     * 📌 Các trạng thái không được phép:
-     *    - DRAFT, PENDING_APPROVAL: có endpoint riêng (submit, approve, reject)
-     *    - CANCELLED, COMPLETED: không thể chuyển tiếp (terminal states)
-     *    - APPROVED, REJECTED: chưa dùng đến
+ * 📌 Các trạng thái không được phép:
+ *    - DRAFT: có endpoint submitToTantou
+ *    - PENDING_APPROVAL: legacy — dùng submitForApproval / approve / reject
+ *    - PENDING_TANTOU: dùng tantouApprove / tantouReject
+ *    - PENDING_BOARD_VOTE: dùng EB vote module (BE2)
+ *    - CANCELLED, COMPLETED: không thể chuyển tiếp (terminal states)
+ *    - APPROVED, REJECTED: chưa dùng đến
      *
      * @param current trạng thái hiện tại của series
      * @param target  trạng thái muốn chuyển đến

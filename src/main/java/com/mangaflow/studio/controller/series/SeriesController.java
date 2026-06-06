@@ -4,6 +4,7 @@ import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.series.request.ApproveRequest;
 import com.mangaflow.studio.dto.series.request.RejectRequest;
 import com.mangaflow.studio.dto.series.request.SeriesRequest;
+import com.mangaflow.studio.dto.series.request.TantouRejectRequest;
 import com.mangaflow.studio.dto.series.request.UpdateStatusRequest;
 import com.mangaflow.studio.dto.series.response.SeriesResponse;
 import com.mangaflow.studio.model.series.Genre;
@@ -129,15 +130,15 @@ public class SeriesController {
     }
 
     // ══════════════════════════════════════════════
-    // 6. POST /api/series/{id}/submit — Gửi duyệt
+    // 6. POST /api/series/{id}/submit — Gửi cho tantou duyệt
     // ══════════════════════════════════════════════
 
     @PostMapping("/{id}/submit")
     @PreAuthorize("hasRole('MANGAKA')")
-    public ResponseEntity<SeriesResponse> submitForApproval(
+    public ResponseEntity<SeriesResponse> submitToTantou(
             @PathVariable Long id,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return ResponseEntity.ok(seriesWorkflowService.submitForApproval(id, user));
+        return ResponseEntity.ok(seriesWorkflowService.submitToTantou(id, user));
     }
 
     // ══════════════════════════════════════════════
@@ -167,7 +168,32 @@ public class SeriesController {
     }
 
     // ══════════════════════════════════════════════
-    // 9. PATCH /api/series/{id}/status — Chuyển trạng thái
+    // 9. POST /api/series/{id}/tantou/approve — Tantou đồng ý
+    // ══════════════════════════════════════════════
+
+    @PostMapping("/{id}/tantou/approve")
+    @PreAuthorize("hasRole('TANTOU_EDITOR')")
+    public ResponseEntity<SeriesResponse> tantouApprove(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(seriesWorkflowService.tantouApprove(id, user));
+    }
+
+    // ══════════════════════════════════════════════
+    // 10. POST /api/series/{id}/tantou/reject — Tantou từ chối
+    // ══════════════════════════════════════════════
+
+    @PostMapping("/{id}/tantou/reject")
+    @PreAuthorize("hasRole('TANTOU_EDITOR')")
+    public ResponseEntity<SeriesResponse> tantouReject(
+            @PathVariable Long id,
+            @RequestBody TantouRejectRequest request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(seriesWorkflowService.tantouReject(id, request, user));
+    }
+
+    // ══════════════════════════════════════════════
+    // 11. PATCH /api/series/{id}/status — Chuyển trạng thái
     // ══════════════════════════════════════════════
 
     @PatchMapping("/{id}/status")
