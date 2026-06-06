@@ -93,4 +93,36 @@ public class UserController {
 
         return ResponseEntity.ok(assistants);
     }
+
+    /**
+     * Lay danh sach user co role TANTOU_EDITOR trong he thong.
+     * <p>
+     * Dung trong:
+     * - SeriesDetailPage: search tantou editor de moi
+     * <p>
+     * Neu co ?search=... --> filter theo displayName / username (LIKE %search%).
+     * Khong co --> tra ve tat ca TANTOU_EDITOR.
+     * <p>
+     * Giong pattern getAssistants(), chi khac role.
+     *
+     * @param search tu khoa tim kiem (optional)
+     * @return 200 OK + List&lt;UserDTO&gt; danh sach TANTOU_EDITOR
+     */
+    @GetMapping("/tantou-editors")
+    public ResponseEntity<List<UserDTO>> getTantouEditors(
+            @RequestParam(required = false) String search) {
+        List<User> users;
+
+        if (search != null && !search.isBlank()) {
+            users = userRepository.findByRoleAndSearch(Role.TANTOU_EDITOR, search.trim());
+        } else {
+            users = userRepository.findByRole(Role.TANTOU_EDITOR);
+        }
+
+        List<UserDTO> dtos = users.stream()
+                .map(userMapper::toDTO)
+                .toList();
+
+        return ResponseEntity.ok(dtos);
+    }
 }

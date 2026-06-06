@@ -5,7 +5,7 @@ import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.series.mapper.SeriesMapper;
 import com.mangaflow.studio.dto.series.request.ApproveRequest;
 import com.mangaflow.studio.dto.series.request.RejectRequest;
-import com.mangaflow.studio.dto.series.request.TantouRejectRequest;
+
 import com.mangaflow.studio.dto.series.request.UpdateStatusRequest;
 import com.mangaflow.studio.dto.series.response.SeriesResponse;
 import com.mangaflow.studio.model.auth.User;
@@ -240,7 +240,7 @@ public class SeriesWorkflowService {
      * @return SeriesResponse với status = DRAFT
      */
     @Transactional
-    public SeriesResponse tantouReject(Long id, TantouRejectRequest request, CustomUserDetails user) {
+    public SeriesResponse tantouReject(Long id, CustomUserDetails user) {
         Series series = seriesRepository.findById(id)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Series not found"));
 
@@ -257,12 +257,7 @@ public class SeriesWorkflowService {
         series.setStatus(SeriesStatus.DRAFT);
         SeriesResponse response = seriesMapper.toResponse(seriesRepository.save(series));
 
-        String reason = request != null ? request.getReason() : null;
-        String message = "Series \"" + series.getTitle() + "\" has been rejected by your tantou editor";
-        if (reason != null && !reason.isBlank()) {
-            message += ": " + reason;
-        }
-
+        String message = "Series \"" + series.getTitle() + "\" has been rejected by Lead Editor.";
         webSocketService.sendToUser(series.getMangaka().getId(),
                 "TANTOU_REJECTED",
                 message);

@@ -4,7 +4,7 @@ import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.series.request.ApproveRequest;
 import com.mangaflow.studio.dto.series.request.RejectRequest;
 import com.mangaflow.studio.dto.series.request.SeriesRequest;
-import com.mangaflow.studio.dto.series.request.TantouRejectRequest;
+
 import com.mangaflow.studio.dto.series.request.UpdateStatusRequest;
 import com.mangaflow.studio.dto.series.response.SeriesResponse;
 import com.mangaflow.studio.model.series.Genre;
@@ -187,9 +187,8 @@ public class SeriesController {
     @PreAuthorize("hasRole('TANTOU_EDITOR')")
     public ResponseEntity<SeriesResponse> tantouReject(
             @PathVariable Long id,
-            @RequestBody TantouRejectRequest request,
             @AuthenticationPrincipal CustomUserDetails user) {
-        return ResponseEntity.ok(seriesWorkflowService.tantouReject(id, request, user));
+        return ResponseEntity.ok(seriesWorkflowService.tantouReject(id, user));
     }
 
     // ══════════════════════════════════════════════
