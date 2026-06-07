@@ -143,6 +143,16 @@ public class Series {
     private String currentTier;
 
     /**
+     * statusNote: Ghi chú kèm trạng thái hiện tại.
+     * Tại sao cần field này?
+     * - Khi Tantou reject, lưu lý do reject để Mangaka biết đường sửa.
+     * - Khi Chief Editor APPROVED/REJECTED, lưu quyết định kèm lý do.
+     * - Tránh phải tạo bảng riêng cho log.
+     */
+    @Column(columnDefinition = "NVARCHAR(MAX)")
+    private String statusNote;
+
+    /**
      * createdAt: Thời điểm tạo series.
      * @Column(updatable = false) → không cho phép UPDATE sau khi insert.
      * Set tự động trong @PrePersist.

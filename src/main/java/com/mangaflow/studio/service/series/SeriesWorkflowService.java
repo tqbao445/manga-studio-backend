@@ -3,15 +3,10 @@ package com.mangaflow.studio.service.series;
 import com.mangaflow.studio.common.exception.AppException;
 import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.series.mapper.SeriesMapper;
-import com.mangaflow.studio.dto.series.request.ApproveRequest;
-import com.mangaflow.studio.dto.series.request.RejectRequest;
-
 import com.mangaflow.studio.dto.series.request.UpdateStatusRequest;
 import com.mangaflow.studio.dto.series.response.SeriesResponse;
-import com.mangaflow.studio.model.auth.User;
 import com.mangaflow.studio.model.series.Series;
 import com.mangaflow.studio.model.series.SeriesStatus;
-import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
 import com.mangaflow.studio.service.common.WebSocketService;
 import lombok.RequiredArgsConstructor;
@@ -79,12 +74,6 @@ public class SeriesWorkflowService {
     private final SeriesRepository seriesRepository;
 
     /**
-     * userRepository: Dùng để tìm User entity khi gán tantou editor
-     * trong quá trình approve series.
-     */
-    private final UserRepository userRepository;
-
-    /**
      * seriesMapper: MapStruct — chuyển đổi Series → SeriesResponse.
      * Dùng ở mọi method để trả về response sau khi thay đổi status.
      */
@@ -95,49 +84,6 @@ public class SeriesWorkflowService {
      * submit, approve, reject...
      */
     private final WebSocketService webSocketService;
-
-    // ════════════════════════════════════════════════════════════
-    // 1. SUBMIT — Gửi duyệt (Mangaka)
-    // ════════════════════════════════════════════════════════════
-
-    /**
-     * Gửi series cho Editorial Board phê duyệt.
-     *
-     * 📌 State transition: DRAFT → PENDING_APPROVAL
-     *
-     * 📌 Ai gọi:
-     *    Chỉ MANGAKA (chủ sở hữu) — @PreAuthorize ở Controller.
-     *    Kiểm tra ownership bằng findByIdAndMangakaId().
-     *
-     * 📌 Điều kiện:
-     *    Series phải đang ở trạng thái DRAFT.
-     *    Nếu không → throw BAD_REQUEST.
-     *
-     * 📌 Sau khi submit:
-     *    Editorial Board sẽ xem xét và approve hoặc reject.
-     *    Mangaka không thể tự approve — tránh xung đột lợi ích.
-     *
-     * @param id   ID của series cần gửi duyệt
-     * @param user user đang đăng nhập (MANGAKA)
-     * @return SeriesResponse với status = PENDING_APPROVAL
-     * @throws AppException 404 — nếu không tìm thấy hoặc không phải chủ
-     * @throws AppException 400 — nếu series không ở trạng thái DRAFT
-     */
-    @Transactional
-    public SeriesResponse submitForApproval(Long id, CustomUserDetails user) {
-        Series series = seriesRepository.findByIdAndMangakaId(id, user.getUserId())
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
-                        "Series not found or not owned by you"));
-
-        if (series.getStatus() != SeriesStatus.DRAFT) {
-            throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Only DRAFT series can be submitted");
-        }
-
-        series.setStatus(SeriesStatus.PENDING_APPROVAL);
-
-        return seriesMapper.toResponse(seriesRepository.save(series));
-    }
 
     // ════════════════════════════════════════════════════════════
     // 1b. SUBMIT TO TANTOU — Gửi cho Tantou Editor (Mangaka)
@@ -263,99 +209,6 @@ public class SeriesWorkflowService {
                 message);
 
         return response;
-    }
-
-    // ════════════════════════════════════════════════════════════
-    // 2. APPROVE — Phê duyệt (Editorial Board)
-    // ════════════════════════════════════════════════════════════
-
-    /**
-     * Phê duyệt series — đưa lên trạng thái ONGOING.
-     *
-     * 📌 State transition: PENDING_APPROVAL → ONGOING
-     *
-     * 📌 Ai gọi:
-     *    Chỉ EDITORIAL_BOARD — @PreAuthorize ở Controller.
-     *    Không cần ownership check (Editorial Board quản lý tất cả series).
-     *
-     * 📌 Điều kiện:
-     *    Series phải đang PENDING_APPROVAL.
-     *    Nếu không → throw BAD_REQUEST.
-     *
-     * 📌 Gán Tantou Editor (tuỳ chọn):
-     *    Khi approve, Editorial Board có thể gán một biên tập viên
-     *    phụ trách series này (tantouEditor).
-     *    Nếu request.tantouEditorId != null → tìm User và gán.
-     *    Editor phải có role TANTOU_EDITOR (hoặc bất kỳ, tuỳ logic sau này).
-     *    Nếu editor không tồn tại → throw 404.
-     *
-     * @param id      ID của series cần duyệt
-     * @param request chứa tantouEditorId (tuỳ chọn) — gán editor phụ trách
-     * @param user    user đang đăng nhập (EDITORIAL_BOARD)
-     * @return SeriesResponse với status = ONGOING
-     * @throws AppException 404 — nếu không tìm thấy series hoặc editor
-     * @throws AppException 400 — nếu series không ở trạng thái PENDING_APPROVAL
-     */
-    @Transactional
-    public SeriesResponse approve(Long id, ApproveRequest request, CustomUserDetails user) {
-        Series series = seriesRepository.findById(id)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Series not found"));
-
-        if (series.getStatus() != SeriesStatus.PENDING_APPROVAL) {
-            throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Series is not pending approval");
-        }
-
-        series.setStatus(SeriesStatus.ONGOING);
-
-        if (request.getTantouEditorId() != null) {
-            User editor = userRepository.findById(request.getTantouEditorId())
-                    .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Editor not found"));
-            series.setTantouEditor(editor);
-        }
-
-        return seriesMapper.toResponse(seriesRepository.save(series));
-    }
-
-    // ════════════════════════════════════════════════════════════
-    // 3. REJECT — Từ chối (Editorial Board)
-    // ════════════════════════════════════════════════════════════
-
-    /**
-     * Từ chối series — đưa về trạng thái DRAFT để mangaka sửa lại.
-     *
-     * 📌 State transition: PENDING_APPROVAL → DRAFT
-     *
-     * 📌 Ai gọi:
-     *    Chỉ EDITORIAL_BOARD — @PreAuthorize ở Controller.
-     *
-     * 📌 Điều kiện:
-     *    Series phải đang PENDING_APPROVAL.
-     *
-     * 📌 Sau khi reject:
-     *    Mangaka có thể sửa lại thông tin series và submit lại.
-     *    Editorial Board có thể ghi lý do từ chối trong request.notes.
-     *
-     * @param id      ID của series cần từ chối
-     * @param request (hiện tại chỉ dùng notes để log, không ảnh hưởng state)
-     * @param user    user đang đăng nhập (EDITORIAL_BOARD)
-     * @return SeriesResponse với status = DRAFT
-     * @throws AppException 404 — nếu không tìm thấy series
-     * @throws AppException 400 — nếu series không ở trạng thái PENDING_APPROVAL
-     */
-    @Transactional
-    public SeriesResponse reject(Long id, RejectRequest request, CustomUserDetails user) {
-        Series series = seriesRepository.findById(id)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Series not found"));
-
-        if (series.getStatus() != SeriesStatus.PENDING_APPROVAL) {
-            throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Series is not pending approval");
-        }
-
-        series.setStatus(SeriesStatus.DRAFT);
-
-        return seriesMapper.toResponse(seriesRepository.save(series));
     }
 
     // ════════════════════════════════════════════════════════════

@@ -4,5 +4,6 @@ public enum Role {
     MANGAKA,
     ASSISTANT,
     TANTOU_EDITOR,
-    EDITORIAL_BOARD
+    EDITORIAL_BOARD,
+    CHIEF_EDITOR
 }

@@ -1,10 +1,7 @@
 package com.mangaflow.studio.controller.series;
 
 import com.mangaflow.studio.common.security.CustomUserDetails;
-import com.mangaflow.studio.dto.series.request.ApproveRequest;
-import com.mangaflow.studio.dto.series.request.RejectRequest;
 import com.mangaflow.studio.dto.series.request.SeriesRequest;
-
 import com.mangaflow.studio.dto.series.request.UpdateStatusRequest;
 import com.mangaflow.studio.dto.series.response.SeriesResponse;
 import com.mangaflow.studio.model.series.Genre;
@@ -13,6 +10,10 @@ import com.mangaflow.studio.model.series.SeriesStatus;
 import com.mangaflow.studio.model.series.TargetDemographic;
 import com.mangaflow.studio.service.series.SeriesService;
 import com.mangaflow.studio.service.series.SeriesWorkflowService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,15 +30,14 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/series")
 @RequiredArgsConstructor
+@Tag(name = "Series", description = "API quản lý series và quy trình duyệt")
 public class SeriesController {
 
     private final SeriesService seriesService;
     private final SeriesWorkflowService seriesWorkflowService;
 
-    // ══════════════════════════════════════════════
-    // 1. GET /api/series — Danh sách series (có filter + phân trang)
-    // ══════════════════════════════════════════════
-
+    @Operation(summary = "Danh sách series",
+               description = "Lấy danh sách series với filter theo status, genre, search và phân trang.")
     @GetMapping
     public ResponseEntity<Page<SeriesResponse>> getAll(
             @RequestParam(required = false) SeriesStatus status,
@@ -52,33 +52,17 @@ public class SeriesController {
         return ResponseEntity.ok(seriesService.getAll(status, genre, targetDemographic, search, pageable, user));
     }
 
-    // ══════════════════════════════════════════════
-    // 2. GET /api/series/{id} — Chi tiết 1 series
-    // ══════════════════════════════════════════════
-
+    @Operation(summary = "Chi tiết series", description = "Xem thông tin chi tiết của 1 series.")
     @GetMapping("/{id}")
     public ResponseEntity<SeriesResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(seriesService.getById(id));
     }
 
-    // ══════════════════════════════════════════════
-    // 3. POST /api/series — Tạo series mới
-    // ══════════════════════════════════════════════
-    //
-    // 📌 consumes = MULTIPART_FORM_DATA_VALUE:
-    //    Client gửi multipart/form-data với 2 phần:
-    //      - "series": JSON của SeriesRequest (application/json)
-    //      - "file":   File ảnh bìa (image/*) — bắt buộc
-    //
-    // 📌 @RequestPart("series"):
-    //    Spring tự parse JSON string trong multipart thành SeriesRequest object.
-    //    Validation (@Valid) vẫn hoạt động bình thường.
-    //
-    // 📌 @RequestParam("file") MultipartFile file:
-    //    Nhận file ảnh từ form-data.
-    //    required = true (mặc định) → bắt buộc phải có file.
-    // ══════════════════════════════════════════════
-
+    @Operation(summary = "Tạo series mới",
+               description = "Mangaka tạo series mới. Gửi multipart/form-data với phần 'series' (JSON) + 'file' (ảnh bìa).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Tạo series thành công")
+    })
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<SeriesResponse> create(
@@ -89,23 +73,8 @@ public class SeriesController {
                 .body(seriesService.create(request, file, user));
     }
 
-    // ══════════════════════════════════════════════
-    // 4. PUT /api/series/{id} — Cập nhật series
-    // ══════════════════════════════════════════════
-    //
-    // 📌 consumes = MULTIPART_FORM_DATA_VALUE:
-    //    Client gửi multipart/form-data với 2 phần:
-    //      - "series": JSON của SeriesRequest (application/json)
-    //      - "file":   File ảnh bìa mới (image/*) — optional
-    //
-    // 📌 @RequestPart("series"):
-    //    Null-safe update: field null trong JSON → giữ nguyên giá trị cũ.
-    //
-    // 📌 @RequestParam(value = "file", required = false):
-    //    Nếu không gửi file → giữ nguyên ảnh cũ.
-    //    Nếu gửi file → upload ảnh mới, xoá ảnh cũ.
-    // ══════════════════════════════════════════════
-
+    @Operation(summary = "Cập nhật series",
+               description = "Mangaka cập nhật thông tin series. File ảnh bìa là tuỳ chọn.")
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<SeriesResponse> update(
@@ -116,10 +85,7 @@ public class SeriesController {
         return ResponseEntity.ok(seriesService.update(id, request, file, user));
     }
 
-    // ══════════════════════════════════════════════
-    // 5. DELETE /api/series/{id} — Xoá series (chỉ DRAFT)
-    // ══════════════════════════════════════════════
-
+    @Operation(summary = "Xoá series", description = "Mangaka xoá series (chỉ khi series đang ở DRAFT).")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<Void> delete(
@@ -129,10 +95,13 @@ public class SeriesController {
         return ResponseEntity.noContent().build();
     }
 
-    // ══════════════════════════════════════════════
-    // 6. POST /api/series/{id}/submit — Gửi cho tantou duyệt
-    // ══════════════════════════════════════════════
-
+    @Operation(summary = "Gửi cho Tantou Editor duyệt",
+               description = "Mangaka gửi series cho Tantou Editor phê duyệt. " +
+                           "Series phải ở trạng thái DRAFT và đã có tantouEditor được chỉ định.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Gửi thành công, series chuyển PENDING_TANTOU"),
+        @ApiResponse(responseCode = "400", description = "Series không ở DRAFT hoặc chưa có tantouEditor")
+    })
     @PostMapping("/{id}/submit")
     @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<SeriesResponse> submitToTantou(
@@ -141,36 +110,14 @@ public class SeriesController {
         return ResponseEntity.ok(seriesWorkflowService.submitToTantou(id, user));
     }
 
-    // ══════════════════════════════════════════════
-    // 7. POST /api/series/{id}/approve — Duyệt series
-    // ══════════════════════════════════════════════
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasRole('EDITORIAL_BOARD')")
-    public ResponseEntity<SeriesResponse> approve(
-            @PathVariable Long id,
-            @RequestBody ApproveRequest request,
-            @AuthenticationPrincipal CustomUserDetails user) {
-        return ResponseEntity.ok(seriesWorkflowService.approve(id, request, user));
-    }
-
-    // ══════════════════════════════════════════════
-    // 8. POST /api/series/{id}/reject — Từ chối series
-    // ══════════════════════════════════════════════
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasRole('EDITORIAL_BOARD')")
-    public ResponseEntity<SeriesResponse> reject(
-            @PathVariable Long id,
-            @RequestBody RejectRequest request,
-            @AuthenticationPrincipal CustomUserDetails user) {
-        return ResponseEntity.ok(seriesWorkflowService.reject(id, request, user));
-    }
-
-    // ══════════════════════════════════════════════
-    // 9. POST /api/series/{id}/tantou/approve — Tantou đồng ý
-    // ══════════════════════════════════════════════
-
+    @Operation(summary = "Tantou Editor đồng ý",
+               description = "Tantou Editor đồng ý với bản thảo, chuyển series lên PENDING_BOARD_VOTE " +
+                           "để chờ Chief Editor tạo cuộc họp.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Đồng ý thành công"),
+        @ApiResponse(responseCode = "400", description = "Series không ở PENDING_TANTOU"),
+        @ApiResponse(responseCode = "403", description = "Bạn không phải tantouEditor của series này")
+    })
     @PostMapping("/{id}/tantou/approve")
     @PreAuthorize("hasRole('TANTOU_EDITOR')")
     public ResponseEntity<SeriesResponse> tantouApprove(
@@ -179,10 +126,13 @@ public class SeriesController {
         return ResponseEntity.ok(seriesWorkflowService.tantouApprove(id, user));
     }
 
-    // ══════════════════════════════════════════════
-    // 10. POST /api/series/{id}/tantou/reject — Tantou từ chối
-    // ══════════════════════════════════════════════
-
+    @Operation(summary = "Tantou Editor từ chối",
+               description = "Tantou Editor từ chối bản thảo, series quay về DRAFT để Mangaka sửa lại.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Từ chối thành công"),
+        @ApiResponse(responseCode = "400", description = "Series không ở PENDING_TANTOU"),
+        @ApiResponse(responseCode = "403", description = "Bạn không phải tantouEditor của series này")
+    })
     @PostMapping("/{id}/tantou/reject")
     @PreAuthorize("hasRole('TANTOU_EDITOR')")
     public ResponseEntity<SeriesResponse> tantouReject(
@@ -191,10 +141,14 @@ public class SeriesController {
         return ResponseEntity.ok(seriesWorkflowService.tantouReject(id, user));
     }
 
-    // ══════════════════════════════════════════════
-    // 11. PATCH /api/series/{id}/status — Chuyển trạng thái
-    // ══════════════════════════════════════════════
-
+    @Operation(summary = "Chuyển trạng thái series",
+               description = "Chuyển trạng thái series. Chỉ áp dụng cho ONGOING/HIATUS/AT_RISK. " +
+                           "Các chuyển đổi: ONGOING ↔ HIATUS, ONGOING → AT_RISK/CANCELLED/COMPLETED, " +
+                           "HIATUS → CANCELLED, AT_RISK → ONGOING/CANCELLED.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Chuyển trạng thái thành công"),
+        @ApiResponse(responseCode = "400", description = "Transition không hợp lệ")
+    })
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('EDITORIAL_BOARD')")
     public ResponseEntity<SeriesResponse> updateStatus(
