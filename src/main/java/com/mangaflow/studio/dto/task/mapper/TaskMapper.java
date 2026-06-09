@@ -63,6 +63,11 @@ public interface TaskMapper {
      * @return TaskResponse DTO gửi về frontend
      */
     @Mapping(target = "regionId", source = "region.id")
+    @Mapping(target = "regionX", expression = "java(task.getRegion() != null ? task.getRegion().getX() : null)")
+    @Mapping(target = "regionY", expression = "java(task.getRegion() != null ? task.getRegion().getY() : null)")
+    @Mapping(target = "regionWidth", expression = "java(task.getRegion() != null ? task.getRegion().getWidth() : null)")
+    @Mapping(target = "regionHeight", expression = "java(task.getRegion() != null ? task.getRegion().getHeight() : null)")
+    @Mapping(target = "regionLabel", expression = "java(task.getRegion() != null ? task.getRegion().getLabel() : null)")
     @Mapping(target = "assistant", expression = "java(toBasicUser(task.getAssistant()))")
     @Mapping(target = "assignedBy", expression = "java(toBasicUser(task.getAssignedBy()))")
     TaskResponse toResponse(Task task);

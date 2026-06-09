@@ -3,6 +3,7 @@ package com.mangaflow.studio.controller.page;
 import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.page.request.PageBatchReorderRequest;
 import com.mangaflow.studio.dto.page.request.PageReorderRequest;
+import com.mangaflow.studio.dto.page.request.PageStatusRequest;
 import com.mangaflow.studio.dto.page.response.PageResponse;
 import com.mangaflow.studio.service.page.PageService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -509,4 +510,27 @@ public class PageController {
         return ResponseEntity.ok(response);
     }
 
+    // ════════════════════════════════════════════════════════════════
+    // 9. UPDATE PAGE STATUS — Đánh dấu page hoàn thành
+    // ════════════════════════════════════════════════════════════════
+
+    @Operation(
+            summary = "Cập nhật trạng thái page",
+            description = "Cập nhật trạng thái của 1 page (VD: đánh dấu COMPLETED). " +
+                    "Sau đó tự động tính lại progressPercent của chapter. Chỉ MANGAKA mới được dùng."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Page đã cập nhật trạng thái"),
+            @ApiResponse(responseCode = "404", description = "Không tìm thấy page"),
+            @ApiResponse(responseCode = "403", description = "Không có quyền (chỉ MANGAKA)")
+    })
+    @PutMapping("/pages/{id}/status")
+    @PreAuthorize("hasRole('MANGAKA')")
+    public ResponseEntity<PageResponse> updatePageStatus(
+            @Parameter(description = "ID của page cần cập nhật", example = "1")
+            @PathVariable Long id,
+            @Valid @RequestBody PageStatusRequest request) {
+        PageResponse response = pageService.updateStatus(id, request.getStatus());
+        return ResponseEntity.ok(response);
+    }
 }

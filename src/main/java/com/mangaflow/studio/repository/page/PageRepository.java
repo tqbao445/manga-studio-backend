@@ -1,6 +1,7 @@
 package com.mangaflow.studio.repository.page;
 
 import com.mangaflow.studio.model.page.Page;
+import com.mangaflow.studio.model.page.PageStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -103,4 +104,14 @@ public interface PageRepository extends JpaRepository<Page, Long> {
      * @return List<Page> danh sách pages
      */
     List<Page> findByChapterIdIn(List<Long> chapterIds);
+
+    /**
+     * Đếm số lượng pages theo chapterId và status.
+     * Dùng để tính progressPercent của chapter.
+     *
+     * @param chapterId ID của chapter
+     * @param status    Trạng thái page cần đếm (VD: COMPLETED)
+     * @return số lượng pages
+     */
+    long countByChapterIdAndStatus(Long chapterId, PageStatus status);
 }

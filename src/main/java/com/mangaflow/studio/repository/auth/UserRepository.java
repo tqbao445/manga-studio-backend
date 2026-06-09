@@ -25,7 +25,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Dùng trong:
      *   - UserController.getAssistants(): lấy danh sách ASSISTANT để frontend hiển thị dropdown
      *   - SeriesAssistantService.inviteAssistant(): kiểm tra user có role ASSISTANT không
-     *   - SeriesWorkflowService.approve(): tìm user TANTOU_EDITOR
+     *   - (Legacy: SeriesWorkflowService.approve() — đã xoá, dùng tantouApprove thay thế)
      * <p>
      * 📌 Spring Data JPA tự động sinh query: WHERE role = ?
      *

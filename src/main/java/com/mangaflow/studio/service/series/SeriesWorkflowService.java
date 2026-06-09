@@ -55,8 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
  *                    │     ├────► CANCELLED
  *                    │     └────► COMPLETED
  *                    │
- *              (Legacy path: DRAFT → PENDING_APPROVAL → ONGOING/DRAFT)
- *
+     *
  * 📌 Các trạng thái không có transition:
  *    APPROVED, REJECTED — dự phòng cho tương lai, chưa dùng.
  */
@@ -253,125 +252,6 @@ public class SeriesWorkflowService {
     }
 
     // ════════════════════════════════════════════════════════════
-    // 2. APPROVE — Phê duyệt (Editorial Board)
-    // ════════════════════════════════════════════════════════════
-
-    /**
-     * Phê duyệt series — đưa lên trạng thái ONGOING.
-     *
-     * 📌 State transition: PENDING_APPROVAL → ONGOING
-     *
-     * 📌 Ai gọi:
-     *    Chỉ EDITORIAL_BOARD — @PreAuthorize ở Controller.
-     *    Không cần ownership check (Editorial Board quản lý tất cả series).
-     *
-     * 📌 Điều kiện:
-     *    Series phải đang PENDING_APPROVAL.
-     *    Nếu không → throw BAD_REQUEST.
-     *
-     * 📌 Gán Tantou Editor (tuỳ chọn):
-     *    Khi approve, Editorial Board có thể gán một biên tập viên
-     *    phụ trách series này (tantouEditor).
-     *    Nếu request.tantouEditorId != null → tìm User và gán.
-     *    Editor phải có role TANTOU_EDITOR (hoặc bất kỳ, tuỳ logic sau này).
-     *    Nếu editor không tồn tại → throw 404.
-     *
-     * @param id      ID của series cần duyệt
-     * @param request chứa tantouEditorId (tuỳ chọn) — gán editor phụ trách
-     * @param user    user đang đăng nhập (EDITORIAL_BOARD)
-     * @return SeriesResponse với status = ONGOING
-     * @throws AppException 404 — nếu không tìm thấy series hoặc editor
-     * @throws AppException 400 — nếu series không ở trạng thái PENDING_APPROVAL
-     */
-    @Transactional
-    public SeriesResponse approve(Long id, ApproveRequest request, CustomUserDetails user) {
-        Series series = seriesRepository.findById(id)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Series not found"));
-
-        if (series.getStatus() != SeriesStatus.PENDING_APPROVAL) {
-            throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Series is not pending approval");
-        }
-
-        series.setStatus(SeriesStatus.ONGOING);
-
-        if (request.getTantouEditorId() != null) {
-            User editor = userRepository.findById(request.getTantouEditorId())
-                    .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Editor not found"));
-            series.setTantouEditor(editor);
-        }
-
-        SeriesResponse response = seriesMapper.toResponse(seriesRepository.save(series));
-
-        // 📌 Gửi notification cho Mangaka biết series đã được duyệt
-        notificationService.createAndSend(
-                series.getMangaka().getId(),             // userId: MANGAKA
-                "SERIES_APPROVED",                        // type
-                "Series approved: " + series.getTitle(),  // title
-                "Series \"" + series.getTitle()
-                        + "\" has been approved by Editorial Board.", // message
-                "SERIES",                                // referenceType
-                series.getId()                           // referenceId
-        );
-
-        return response;
-    }
-
-    // ════════════════════════════════════════════════════════════
-    // 3. REJECT — Từ chối (Editorial Board)
-    // ════════════════════════════════════════════════════════════
-
-    /**
-     * Từ chối series — đưa về trạng thái DRAFT để mangaka sửa lại.
-     *
-     * 📌 State transition: PENDING_APPROVAL → DRAFT
-     *
-     * 📌 Ai gọi:
-     *    Chỉ EDITORIAL_BOARD — @PreAuthorize ở Controller.
-     *
-     * 📌 Điều kiện:
-     *    Series phải đang PENDING_APPROVAL.
-     *
-     * 📌 Sau khi reject:
-     *    Mangaka có thể sửa lại thông tin series và submit lại.
-     *    Editorial Board có thể ghi lý do từ chối trong request.notes.
-     *
-     * @param id      ID của series cần từ chối
-     * @param request (hiện tại chỉ dùng notes để log, không ảnh hưởng state)
-     * @param user    user đang đăng nhập (EDITORIAL_BOARD)
-     * @return SeriesResponse với status = DRAFT
-     * @throws AppException 404 — nếu không tìm thấy series
-     * @throws AppException 400 — nếu series không ở trạng thái PENDING_APPROVAL
-     */
-    @Transactional
-    public SeriesResponse reject(Long id, RejectRequest request, CustomUserDetails user) {
-        Series series = seriesRepository.findById(id)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Series not found"));
-
-        if (series.getStatus() != SeriesStatus.PENDING_APPROVAL) {
-            throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Series is not pending approval");
-        }
-
-        series.setStatus(SeriesStatus.DRAFT);
-
-        SeriesResponse response = seriesMapper.toResponse(seriesRepository.save(series));
-
-        // 📌 Gửi notification cho Mangaka biết series đã bị từ chối
-        notificationService.createAndSend(
-                series.getMangaka().getId(),              // userId: MANGAKA
-                "SERIES_REJECTED",                         // type
-                "Series rejected: " + series.getTitle(),   // title
-                "Series \"" + series.getTitle()
-                        + "\" has been rejected by Editorial Board.", // message
-                "SERIES",                                 // referenceType
-                series.getId()                            // referenceId
-        );
-
-        return response;
-    }
-
-    // ════════════════════════════════════════════════════════════
     // 4. UPDATE STATUS — Chuyển trạng thái (Editorial Board)
     // ════════════════════════════════════════════════════════════
 
@@ -381,9 +261,7 @@ public class SeriesWorkflowService {
      * 📌 Ai gọi:
      *    Chỉ EDITORIAL_BOARD — @PreAuthorize ở Controller.
      *
-     * 📌 Khác với approve/reject:
-     *    approve/reject chỉ xử lý PENDING_APPROVAL → ONGOING/DRAFT.
-     *    updateStatus xử lý các chuyển đổi giữa ONGOING, HIATUS, AT_RISK,...
+     * 📌 updateStatus xử lý các chuyển đổi giữa ONGOING, HIATUS, AT_RISK,...
      *
      * 📌 State machine validation:
      *    Gọi isValidTransition() để kiểm tra transition hợp lệ.
@@ -468,8 +346,8 @@ public class SeriesWorkflowService {
      *
  * 📌 Các trạng thái không được phép:
  *    - DRAFT: có endpoint submitToTantou
- *    - PENDING_APPROVAL: legacy — dùng submitForApproval / approve / reject
  *    - PENDING_TANTOU: dùng tantouApprove / tantouReject
+ *    - PENDING_BOARD_VOTE: dùng EB vote module
  *    - PENDING_BOARD_VOTE: dùng EB vote module (BE2)
  *    - CANCELLED, COMPLETED: không thể chuyển tiếp (terminal states)
  *    - APPROVED, REJECTED: chưa dùng đến

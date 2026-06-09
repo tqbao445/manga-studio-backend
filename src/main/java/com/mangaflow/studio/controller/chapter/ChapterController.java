@@ -4,6 +4,7 @@ import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.chapter.request.ChapterRequest;
 import com.mangaflow.studio.dto.chapter.response.ChapterResponse;
 import com.mangaflow.studio.service.chapter.ChapterService;
+import com.mangaflow.studio.service.chapter.ChapterWorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -96,6 +97,12 @@ public class ChapterController {
      * 📌 final + @RequiredArgsConstructor → Spring tự inject
      */
     private final ChapterService chapterService;
+
+    /**
+     * ── ChapterWorkflowService ──
+     * Service xử lý state machine cho Chapter (submit, approve, reject, publish).
+     */
+    private final ChapterWorkflowService chapterWorkflowService;
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET CHAPTERS BY SERIES — Danh sách chapters
@@ -349,5 +356,65 @@ public class ChapterController {
         // Gọi Service.delete() → 204 No Content (không trả dữ liệu)
         chapterService.delete(id, user);
         return ResponseEntity.noContent().build();
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 5. CHAPTER WORKFLOW — Submit, Approve, Reject, Publish
+    // ════════════════════════════════════════════════════════════════
+
+    @Operation(summary = "Mangaka submit chapter cho Tantou review")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Chapter đã submit thành công"),
+            @ApiResponse(responseCode = "400", description = "Chapter không ở trạng thái DRAFT hoặc REVISION_REQUIRED"),
+            @ApiResponse(responseCode = "403", description = "Không phải chủ sở hữu series")
+    })
+    @PostMapping("/chapters/{id}/submit")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ChapterResponse> submitForReview(
+            @Parameter(description = "ID của chapter") @PathVariable Long id,
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(chapterWorkflowService.submitForReview(id, user));
+    }
+
+    @Operation(summary = "Tantou approve chapter")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Chapter đã được approve"),
+            @ApiResponse(responseCode = "400", description = "Chapter không ở trạng thái IN_REVIEW"),
+            @ApiResponse(responseCode = "403", description = "Không phải tantou editor của series")
+    })
+    @PostMapping("/chapters/{id}/tantou/approve")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ChapterResponse> tantouApprove(
+            @Parameter(description = "ID của chapter") @PathVariable Long id,
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(chapterWorkflowService.tantouApprove(id, user));
+    }
+
+    @Operation(summary = "Tantou yêu cầu revision cho chapter")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Đã yêu cầu revision"),
+            @ApiResponse(responseCode = "400", description = "Chapter không ở trạng thái IN_REVIEW"),
+            @ApiResponse(responseCode = "403", description = "Không phải tantou editor của series")
+    })
+    @PostMapping("/chapters/{id}/tantou/request-revision")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ChapterResponse> tantouRequestRevision(
+            @Parameter(description = "ID của chapter") @PathVariable Long id,
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(chapterWorkflowService.tantouRequestRevision(id, user));
+    }
+
+    @Operation(summary = "EB publish chapter (sau khi tantou đã approve)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Chapter đã được publish"),
+            @ApiResponse(responseCode = "400", description = "Chapter không ở trạng thái APPROVED hoặc series không ONGOING"),
+            @ApiResponse(responseCode = "403", description = "Chỉ Editorial Board mới được publish chapter")
+    })
+    @PostMapping("/chapters/{id}/publish")
+    @PreAuthorize("hasAnyRole('EDITORIAL_BOARD', 'CHIEF_EDITOR')")
+    public ResponseEntity<ChapterResponse> publish(
+            @Parameter(description = "ID của chapter") @PathVariable Long id,
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(chapterWorkflowService.publish(id, user));
     }
 }

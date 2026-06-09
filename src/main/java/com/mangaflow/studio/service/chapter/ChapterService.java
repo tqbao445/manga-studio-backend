@@ -8,7 +8,9 @@ import com.mangaflow.studio.dto.chapter.response.ChapterResponse;
 import com.mangaflow.studio.model.chapter.Chapter;
 import com.mangaflow.studio.model.chapter.ChapterStatus;
 import com.mangaflow.studio.model.series.Series;
+import com.mangaflow.studio.model.page.PageStatus;
 import com.mangaflow.studio.repository.chapter.ChapterRepository;
+import com.mangaflow.studio.repository.page.PageRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -69,6 +71,11 @@ public class ChapterService {
      * - Cập nhật series.chapterCount (denormalized field) sau khi tạo/xoá chapter
      */
     private final SeriesRepository seriesRepository;
+
+    /**
+     * pageRepository: Dùng để đếm pages cho progress calculation.
+     */
+    private final PageRepository pageRepository;
 
     /**
      * chapterMapper: MapStruct — chuyển đổi giữa Entity và DTO.
@@ -424,5 +431,34 @@ public class ChapterService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Series not found"));
         series.setChapterCount((int) chapterRepository.countBySeriesId(seriesId));
         seriesRepository.save(series);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  PROGRESS — Tính toán tiến độ chapter
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * Tính toán lại progressPercent và pageCount của chapter
+     * dựa trên số page COMPLETED / tổng số pages.
+     * <p>
+     * Được gọi khi:
+     * - Upload page mới
+     * - Xoá page
+     * - Mangaka đánh dấu page là COMPLETED
+     *
+     * @param chapterId ID của chapter cần tính
+     */
+    @Transactional
+    public void recalculateProgress(Long chapterId) {
+        Chapter chapter = chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Chapter not found"));
+
+        long totalPages = pageRepository.countByChapterId(chapterId);
+        long completedPages = pageRepository.countByChapterIdAndStatus(chapterId, PageStatus.COMPLETED);
+
+        chapter.setPageCount((int) totalPages);
+        chapter.setProgressPercent(totalPages == 0 ? 0 : (int) (completedPages * 100 / totalPages));
+
+        chapterRepository.save(chapter);
     }
 }
