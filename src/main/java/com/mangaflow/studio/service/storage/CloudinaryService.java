@@ -751,8 +751,9 @@ public class CloudinaryService {
      *    uploadPageMerge nhận BufferedImage — ảnh đã được xử lý trong Java
      *    (composite layers bằng Graphics2D + AlphaComposite).
      *
-     * 📌 Cấu trúc thư mục:
-     *    manga_studio/chapters/ch{chapterId}/pages/p{pageId}/final.png
+     * 📌 Mỗi lần merge tạo public_id unique (merge_{timestamp}):
+     *    - Không ghi đè ảnh cũ → originalImageUrl (từ flatten) luôn hoạt động
+     *    - Tất cả lịch sử merge đều tồn tại trên Cloudinary
      *
      * @param image      BufferedImage đã composite xong (Graphics2D)
      * @param chapterId  ID của chapter
@@ -769,13 +770,16 @@ public class CloudinaryService {
             ImageIO.write(image, "png", baos);
             byte[] imageBytes = baos.toByteArray();
 
+            // Dùng public_id unique theo timestamp để không ghi đè ảnh merge cũ
+            // → originalImageUrl (từ flatten) không bị invalidate
+            String publicId = "merge_" + System.currentTimeMillis();
+
             Map<?, ?> result = cloudinary.uploader().upload(
                     imageBytes,
                     ObjectUtils.asMap(
                             "folder", folder,
-                            "public_id", "final",
-                            "resource_type", "image",
-                            "overwrite", true
+                            "public_id", publicId,
+                            "resource_type", "image"
                     )
             );
 

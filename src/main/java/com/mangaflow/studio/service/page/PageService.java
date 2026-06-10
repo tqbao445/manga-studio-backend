@@ -492,7 +492,7 @@ public class PageService {
 
         try {
             // ── Bước 4: Download ảnh nền (base page) ──
-            // Dùng originalImageUrl — ảnh gốc full size
+            // Luôn dùng originalImageUrl — ảnh gốc full size ổn định (không bị overwrite)
             BufferedImage baseImage = ImageIO.read(new URL(page.getOriginalImageUrl()));
 
             // ── Bước 5: Composite từng layer vào ảnh nền ──
@@ -541,20 +541,12 @@ public class PageService {
             // Giải phóng baseImage
             baseImage.flush();
 
-            // ── Bước 6: Xoá ảnh merge cũ (nếu có) ──
-            if (page.getFinalImageUrl() != null) {
-                try {
-                    cloudinaryService.deleteImageByUrl(page.getFinalImageUrl());
-                } catch (Exception ignored) {
-                    // Không throw — ưu tiên upload merge mới
-                }
-            }
-
             // ── Bước 6: Upload ảnh đã merge lên Cloudinary ──
+            // uploadPageMerge dùng public_id "final" + overwrite:true → tự ghi đè ảnh cũ
             CloudinaryService.UploadPageMergeResult mergeResult = cloudinaryService.uploadPageMerge(
                     compositeImage, page.getChapterId(), page.getId());
 
-            // ── Bước 8: Cập nhật URLs của page ──
+            // ── Bước 7: Cập nhật URLs của page ──
             page.setFinalImageUrl(mergeResult.getFinalImageUrl());
             page.setWebImageUrl(mergeResult.getWebImageUrl());
             page.setThumbnailUrl(mergeResult.getThumbnailUrl());
