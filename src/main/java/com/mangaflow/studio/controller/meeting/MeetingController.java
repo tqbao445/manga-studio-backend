@@ -65,6 +65,29 @@ public class MeetingController {
         return ResponseEntity.ok(meetingService.getMeetingsBySeries(seriesId));
     }
 
+    @Operation(summary = "Danh sách cuộc họp của user hiện tại",
+               description = "Lấy tất cả cuộc họp mà user đang đăng nhập được mời tham gia. " +
+                           "Sắp xếp mới nhất trước. Dùng cho EditorialBoardPage.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Thành công")
+    })
+    @GetMapping("/meetings/user")
+    public ResponseEntity<List<MeetingResponse>> getMeetingsForUser(
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(meetingService.getMeetingsForUser(user.getUserId()));
+    }
+
+    @Operation(summary = "Danh sách tiêu chí chấm điểm active",
+               description = "Lấy danh sách tiêu chí chấm điểm đang được kích hoạt (is_active = true), " +
+                           "sắp xếp theo sortOrder. Dùng để render form vote.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Thành công")
+    })
+    @GetMapping("/criteria")
+    public ResponseEntity<List<CriterionResponse>> getActiveCriteria() {
+        return ResponseEntity.ok(meetingService.getActiveCriteria());
+    }
+
     @Operation(summary = "Bỏ phiếu cho cuộc họp",
                description = "EDITORIAL_BOARD member bỏ phiếu YES/NO và chấm điểm 1-10 cho từng tiêu chí. " +
                            "Cho phép gọi lại để đổi ý (upsert).")

@@ -135,6 +135,72 @@ public class MeetingService {
     }
 
     // ════════════════════════════════════════════════════════════
+    // 3b. GET MEETINGS FOR USER — User xem danh sách meetings của mình
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Lấy tất cả cuộc họp mà user hiện tại được mời tham gia.
+     * Dùng cho EditorialBoardPage hiển thị danh sách meeting.
+     *
+     * Cách hoạt động:
+     * 1. Query MeetingParticipant by userId → lấy các meeting IDs
+     * 2. Với mỗi meeting, build MeetingResponse đầy đủ
+     * 3. Sắp xếp mới nhất trước
+     *
+     * @param userId ID của user cần lấy meetings
+     * @return Danh sách MeetingResponse đã sắp xếp
+     */
+    @Transactional(readOnly = true)
+    public List<MeetingResponse> getMeetingsForUser(Long userId) {
+        // Tìm tất cả participant records của user này (JOIN FETCH meeting)
+        List<MeetingParticipant> participants = meetingParticipantRepository.findByUserId(userId);
+
+        // Build response cho từng meeting, sắp xếp mới nhất trước
+        return participants.stream()
+                .map(mp -> buildMeetingResponse(mp.getMeeting()))
+                .sorted((a, b) -> {
+                    // Nếu có createdAt thì so sánh, không thì mặc định
+                    if (a.getCreatedAt() != null && b.getCreatedAt() != null) {
+                        return b.getCreatedAt().compareTo(a.getCreatedAt());
+                    }
+                    return 0;
+                })
+                .collect(Collectors.toList());
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 3c. GET ACTIVE CRITERIA — Lấy danh sách tiêu chí chấm điểm
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Lấy danh sách tiêu chí chấm điểm đang active (is_active = true).
+     * Frontend dùng để render form vote (ScoreSlider).
+     *
+     * Cách hoạt động:
+     * 1. Gọi VoteCriterionRepository.findByIsActiveTrueOrderBySortOrderAsc()
+     * 2. Map entity → CriterionResponse DTO
+     *
+     * Tại sao không trả entity trực tiếp?
+     * - Entity có thể bị lazy loading exception nếu session đóng
+     * - DTO chỉ expose đúng field cần thiết, không lộ internal state
+     *
+     * @return Danh sách CriterionResponse đã sắp xếp theo sortOrder
+     */
+    @Transactional(readOnly = true)
+    public List<CriterionResponse> getActiveCriteria() {
+        return voteCriterionRepository.findByIsActiveTrueOrderBySortOrderAsc()
+                .stream()
+                .map(c -> CriterionResponse.builder()
+                        .id(c.getId())
+                        .name(c.getName())
+                        .description(c.getDescription())
+                        .weight(c.getWeight())
+                        .sortOrder(c.getSortOrder())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    // ════════════════════════════════════════════════════════════
     // 4. CAST VOTE — EDITORIAL_BOARD bỏ phiếu
     // ════════════════════════════════════════════════════════════
 
@@ -209,6 +275,23 @@ public class MeetingService {
                     .score(cs.getScore())
                     .build();
             seriesVoteScoreRepository.save(score);
+        }
+
+        // ═══ Auto-complete: nếu tất cả EDITORIAL_BOARD đã vote → COMPLETED ═══
+        // Logic:
+        // 1. Đếm tổng số EDITORIAL_BOARD được mời tham gia meeting này
+        // 2. Đếm số EDITORIAL_BOARD đã bỏ phiếu
+        // 3. Nếu bằng nhau → tất cả đã vote → tự động kết thúc meeting
+        // 4. Chỉ auto-complete khi meeting chưa COMPLETED (tránh set lại)
+        if (meeting.getStatus() != MeetingStatus.COMPLETED) {
+            long totalBoardMembers = meetingParticipantRepository.countBoardMembersByMeetingId(meetingId);
+            long votedBoardMembers = seriesVoteRepository.countBoardVotersByMeetingId(meetingId);
+
+            if (totalBoardMembers > 0 && votedBoardMembers >= totalBoardMembers) {
+                meeting.setStatus(MeetingStatus.COMPLETED);
+                meeting.setEndedAt(LocalDateTime.now());
+                seriesMeetingRepository.save(meeting);
+            }
         }
 
         return buildVoteResponse(meeting, user.getUserId());
@@ -336,8 +419,11 @@ public class MeetingService {
                     })
                     .collect(Collectors.toList());
 
+            long totalBoardMembers = meetingParticipantRepository.countBoardMembersByMeetingId(meeting.getId());
+
             voteSummary = MeetingResponse.VoteSummary.builder()
                     .totalVotes(votes.size())
+                    .totalBoardMembers(totalBoardMembers)
                     .yesCount(yesCount)
                     .noCount(noCount)
                     .details(details)
@@ -373,7 +459,7 @@ public class MeetingService {
         long yesCount = seriesVoteRepository.countByMeetingIdAndVote(meeting.getId(), VoteType.YES);
         long noCount = seriesVoteRepository.countByMeetingIdAndVote(meeting.getId(), VoteType.NO);
 
-        long totalBoardMembers = meetingParticipantRepository.findByMeetingId(meeting.getId()).size();
+        long totalBoardMembers = meetingParticipantRepository.countBoardMembersByMeetingId(meeting.getId());
 
         // Lấy vote của user hiện tại
         VoteType myVote = null;

@@ -79,8 +79,11 @@ public class MeetingResponse {
     @Builder
     @Schema(description = "Tổng hợp kết quả vote")
     public static class VoteSummary {
-        @Schema(description = "Tổng số phiếu", example = "4")
+        @Schema(description = "Tổng số phiếu đã vote", example = "4")
         private long totalVotes;
+
+        @Schema(description = "Tổng số EDITORIAL_BOARD được mời (không tính Tantou)", example = "3")
+        private long totalBoardMembers;
 
         @Schema(description = "Số phiếu YES", example = "3")
         private long yesCount;

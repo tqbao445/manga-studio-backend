@@ -5,6 +5,7 @@ import com.mangaflow.studio.dto.auth.response.UserDTO;
 import com.mangaflow.studio.model.auth.Role;
 import com.mangaflow.studio.model.auth.User;
 import com.mangaflow.studio.repository.auth.UserRepository;
+import org.springframework.security.access.prepost.PreAuthorize;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -117,6 +118,34 @@ public class UserController {
             users = userRepository.findByRoleAndSearch(Role.TANTOU_EDITOR, search.trim());
         } else {
             users = userRepository.findByRole(Role.TANTOU_EDITOR);
+        }
+
+        List<UserDTO> dtos = users.stream()
+                .map(userMapper::toDTO)
+                .toList();
+
+        return ResponseEntity.ok(dtos);
+    }
+
+    /**
+     * Lấy danh sách user có role EDITORIAL_BOARD trong hệ thống.
+     * Dùng trong CreateMeetingModal để chọn participant cho cuộc họp.
+     *
+     * Chỉ CHIEF_EDITOR mới có thể gọi endpoint này.
+     *
+     * @param search từ khoá tìm kiếm (optional)
+     * @return 200 OK + List<UserDTO> danh sách EDITORIAL_BOARD
+     */
+    @GetMapping("/board-members")
+    @PreAuthorize("hasRole('CHIEF_EDITOR')")
+    public ResponseEntity<List<UserDTO>> getBoardMembers(
+            @RequestParam(required = false) String search) {
+        List<User> users;
+
+        if (search != null && !search.isBlank()) {
+            users = userRepository.findByRoleAndSearch(Role.EDITORIAL_BOARD, search.trim());
+        } else {
+            users = userRepository.findByRole(Role.EDITORIAL_BOARD);
         }
 
         List<UserDTO> dtos = users.stream()
