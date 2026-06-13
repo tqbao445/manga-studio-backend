@@ -6,9 +6,16 @@ import com.mangaflow.studio.dto.schedule.response.ScheduleResponse;
 import com.mangaflow.studio.model.schedule.ScheduleStatus;
 import com.mangaflow.studio.service.schedule.PublicationScheduleService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,12 +30,13 @@ import java.util.Map;
  *
  * ═══════════════════════════════════════════════════
  *  Base path: /api
- *  Quyền:     Chỉ EDITORIAL_BOARD và CHIEF_EDITOR
+ *  Quyền:     Tuỳ endpoint (isAuthenticated / EDITORIAL_BOARD + CHIEF_EDITOR)
  *
  *  DANH SÁCH API:
  *  ┌──────────┬──────────────────────────────────────────┬──────────────────────────────┐
  *  │ Method   │ Endpoint                                 │ Chức năng                    │
  *  ├──────────┼──────────────────────────────────────────┼──────────────────────────────┤
+ *  │ GET      │ /api/schedules                           │ Danh sách schedules (paging) │
  *  │ POST     │ /api/series/{seriesId}/schedule          │ Tạo lịch phát hành           │
  *  │ GET      │ /api/series/{seriesId}/schedule          │ Xem schedule của series      │
  *  │ GET      │ /api/schedules/{id}                      │ Xem chi tiết schedule        │
@@ -48,7 +56,74 @@ public class ScheduleController {
     private final PublicationScheduleService scheduleService;
 
     // ═════════════════════════════════════════════════════════
-    //  1. CREATE SCHEDULE — Tạo lịch phát hành mới
+    //  1. GET ALL SCHEDULES — Danh sách schedules (phân trang)
+    // ═════════════════════════════════════════════════════════
+
+    /**
+     * GET /api/schedules
+     *
+     * Lấy danh sách schedules với filter theo status + tìm kiếm + phân trang.
+     * Dùng cho trang Schedule ở frontend (Publication Schedules).
+     *
+     * 📌 Query Parameters:
+     *    - status: Lọc theo trạng thái (ACTIVE / PAUSED / COMPLETED) — không bắt buộc
+     *    - search: Tìm kiếm theo tên series (LIKE %search%) — không bắt buộc
+     *    - page:   Số trang (mặc định 0)
+     *    - size:   Số bản ghi mỗi trang (mặc định 20, tối đa 100)
+     *    - sort:   Sắp xếp theo field (mặc định "createdAt,desc")
+     *
+     * @param status Lọc theo trạng thái
+     * @param search Tìm kiếm theo tên series
+     * @param page   Số trang (0-indexed)
+     * @param size   Số bản ghi mỗi trang
+     * @param sort   Field sắp xếp (VD: "createdAt,desc")
+     * @param user   Thông tin user từ JWT
+     * @return 200 OK + Page<ScheduleResponse>
+     */
+    @Operation(summary = "Danh sách lịch phát hành",
+               description = "Lấy danh sách schedules với filter theo status, tìm kiếm và phân trang. "
+                       + "Tất cả user đã đăng nhập đều xem được.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Danh sách schedules (phân trang)"),
+        @ApiResponse(responseCode = "401", description = "Chưa đăng nhập")
+    })
+    @GetMapping("/schedules")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Page<ScheduleResponse>> getAllSchedules(
+            @Parameter(description = "Lọc theo trạng thái: ACTIVE, PAUSED, COMPLETED")
+            @RequestParam(required = false) ScheduleStatus status,
+
+            @Parameter(description = "Tìm kiếm theo tên series (LIKE %search%)")
+            @RequestParam(required = false) String search,
+
+            @Parameter(description = "Số trang (bắt đầu từ 0)")
+            @RequestParam(defaultValue = "0") int page,
+
+            @Parameter(description = "Số lượng mỗi trang (tối đa 100)")
+            @RequestParam(defaultValue = "20") int size,
+
+            @Parameter(description = "Sắp xếp (VD: createdAt,desc)")
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+
+            @Parameter(description = "Hướng sắp xếp: asc hoặc desc")
+            @RequestParam(defaultValue = "desc") String sortDir,
+
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        if (size > 100) size = 100;
+
+        Sort sort = sortDir.equalsIgnoreCase("asc")
+                ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        return ResponseEntity.ok(
+                scheduleService.getAllSchedules(status, search, pageable, user));
+    }
+
+    // ═════════════════════════════════════════════════════════
+    //  2. CREATE SCHEDULE — Tạo lịch phát hành mới (theo series)
     // ═════════════════════════════════════════════════════════
 
     /**
@@ -75,7 +150,7 @@ public class ScheduleController {
     }
 
     // ═════════════════════════════════════════════════════════
-    //  2. GET SCHEDULE BY SERIES — Xem schedule của series
+    //  3. GET SCHEDULE BY SERIES — Xem schedule của series
     // ═════════════════════════════════════════════════════════
 
     /**
@@ -97,7 +172,7 @@ public class ScheduleController {
     }
 
     // ═════════════════════════════════════════════════════════
-    //  3. GET SCHEDULE BY ID — Xem chi tiết schedule
+    //  4. GET SCHEDULE BY ID — Xem chi tiết schedule
     // ═════════════════════════════════════════════════════════
 
     /**
@@ -117,7 +192,7 @@ public class ScheduleController {
     }
 
     // ═════════════════════════════════════════════════════════
-    //  4. UPDATE SCHEDULE — Sửa cấu hình schedule
+    //  5. UPDATE SCHEDULE — Sửa cấu hình schedule
     // ═════════════════════════════════════════════════════════
 
     /**
@@ -144,7 +219,7 @@ public class ScheduleController {
     }
 
     // ═════════════════════════════════════════════════════════
-    //  5. UPDATE STATUS — Đổi trạng thái schedule
+    //  6. UPDATE STATUS — Đổi trạng thái schedule
     // ═════════════════════════════════════════════════════════
 
     /**
@@ -153,7 +228,7 @@ public class ScheduleController {
      * Đổi trạng thái schedule: PAUSE / RESUME / COMPLETE.
      * Chỉ EDITORIAL_BOARD và CHIEF_EDITOR mới có quyền.
      *
-     * Body: { "status": "PAUSED" | "RESUME" | "COMPLETE" }
+     * Body: { "status": "PAUSED" | "ACTIVE" | "COMPLETED" }
      *
      * @param id     ID của schedule
      * @param body   Map chứa key "status"
@@ -174,7 +249,7 @@ public class ScheduleController {
     }
 
     // ═════════════════════════════════════════════════════════
-    //  6. RESET MISS COUNT — Reset missCount về 0
+    //  7. RESET MISS COUNT — Reset missCount về 0
     // ═════════════════════════════════════════════════════════
 
     /**
@@ -199,7 +274,7 @@ public class ScheduleController {
     }
 
     // ═════════════════════════════════════════════════════════
-    //  7. DELETE SCHEDULE — Xoá schedule
+    //  8. DELETE SCHEDULE — Xoá schedule
     // ═════════════════════════════════════════════════════════
 
     /**

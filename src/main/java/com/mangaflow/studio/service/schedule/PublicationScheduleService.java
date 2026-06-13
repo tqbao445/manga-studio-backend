@@ -15,6 +15,9 @@ import com.mangaflow.studio.repository.series.SeriesRepository;
 import com.mangaflow.studio.service.common.WebSocketService;
 import com.mangaflow.studio.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +46,50 @@ public class PublicationScheduleService {
     private final ScheduleMapper scheduleMapper;
     private final WebSocketService webSocketService;
     private final NotificationService notificationService;
+
+    // ═════════════════════════════════════════════════════════
+    //  GET ALL — Danh sách schedules (phân trang + filter)
+    // ═════════════════════════════════════════════════════════
+
+    /**
+     * Lấy danh sách schedules với phân trang và lọc theo trạng thái.
+     *
+     * 📌 Dùng JPA Specification để build WHERE clause động:
+     *    - Nếu status != null → WHERE status = :status
+     *    - Nếu search != null → WHERE series.title LIKE %:search%
+     *
+     * 📌 Phân trang dùng Pageable từ Spring:
+     *    page, size, sort do controller truyền vào.
+     *
+     * @param status   Lọc theo trạng thái (ACTIVE / PAUSED / COMPLETED) — không bắt buộc
+     * @param search   Tìm kiếm theo tên series — không bắt buộc
+     * @param pageable Thông tin phân trang (page, size, sort)
+     * @param user     User đang đăng nhập
+     * @return Page<ScheduleResponse> danh sách schedules đã phân trang
+     */
+    @Transactional(readOnly = true)
+    public Page<ScheduleResponse> getAllSchedules(ScheduleStatus status, String search, Pageable pageable,
+                                                  CustomUserDetails user) {
+        // ── Build Specification động ──
+        Specification<PublicationSchedule> spec = Specification.where(null);
+
+        // Nếu có lọc theo status: WHERE status = :status
+        if (status != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("status"), status));
+        }
+
+        // Nếu có tìm kiếm theo tên series: WHERE series.title LIKE %:search%
+        if (search != null && !search.trim().isEmpty()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.like(cb.lower(root.get("series").get("title")),
+                            "%" + search.toLowerCase() + "%"));
+        }
+
+        // Gọi repository với Specification + Pageable
+        return scheduleRepository.findAll(spec, pageable)
+                .map(scheduleMapper::toResponse);
+    }
 
     // ═════════════════════════════════════════════════════════
     //  CREATE — Tạo lịch phát hành mới
