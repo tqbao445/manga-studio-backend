@@ -45,6 +45,12 @@ public class ScheduleResponse {
     private String seriesTitle;
 
     /**
+     * seriesThumbnail: URL ảnh bìa series (coverImageUrl).
+     * Frontend dùng để hiển thị thumbnail trong bảng/card.
+     */
+    private String seriesThumbnail;
+
+    /**
      * scheduleType: Loại lịch — WEEKLY hoặc MONTHLY.
      */
     private ScheduleType scheduleType;
