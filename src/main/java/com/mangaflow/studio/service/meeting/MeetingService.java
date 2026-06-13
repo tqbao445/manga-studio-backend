@@ -434,6 +434,8 @@ public class MeetingService {
                 .id(meeting.getId())
                 .seriesId(meeting.getSeries().getId())
                 .seriesTitle(meeting.getSeries().getTitle())
+                .seriesCoverImageUrl(meeting.getSeries().getCoverImageUrl())
+                .seriesCoverColor(meeting.getSeries().getCoverColor())
                 .title(meeting.getTitle())
                 .description(meeting.getDescription())
                 .meetingLink(meeting.getMeetingLink())

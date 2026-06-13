@@ -5,6 +5,7 @@ import com.mangaflow.studio.dto.schedule.request.CreateScheduleRequest;
 import com.mangaflow.studio.dto.schedule.response.ScheduleResponse;
 import com.mangaflow.studio.model.schedule.ScheduleStatus;
 import com.mangaflow.studio.service.schedule.PublicationScheduleService;
+import com.mangaflow.studio.service.schedule.AutoPublishService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -54,6 +55,7 @@ import java.util.Map;
 public class ScheduleController {
 
     private final PublicationScheduleService scheduleService;
+    private final AutoPublishService autoPublishService;
 
     // ═════════════════════════════════════════════════════════
     //  1. GET ALL SCHEDULES — Danh sách schedules (phân trang)
@@ -295,5 +297,27 @@ public class ScheduleController {
             @AuthenticationPrincipal CustomUserDetails user) {
         scheduleService.deleteSchedule(id, user);
         return ResponseEntity.noContent().build();
+    }
+
+    // ═════════════════════════════════════════════════════════
+    //  9. TRIGGER AUTO-PUBLISH — Chạy cron job thủ công (test/demo)
+    // ═════════════════════════════════════════════════════════
+
+    /**
+     * POST /api/schedules/test-auto-publish
+     *
+     * Chạy thủ công logic auto-publish (processWeeklySchedules).
+     * Dùng để test/demo mà không cần chờ cron job 8h sáng.
+     * Chỉ EDITORIAL_BOARD và CHIEF_EDITOR mới có quyền.
+     *
+     * @return 200 OK + message
+     */
+    @Operation(summary = "Trigger auto-publish (test/demo)",
+               description = "Chạy thủ công logic auto-publish để test không cần chờ cron job.")
+    @PostMapping("/schedules/test-auto-publish")
+    @PreAuthorize("hasAnyRole('EDITORIAL_BOARD', 'CHIEF_EDITOR')")
+    public ResponseEntity<Map<String, String>> triggerAutoPublish() {
+        autoPublishService.processWeeklySchedules();
+        return ResponseEntity.ok(Map.of("message", "Auto-publish triggered successfully"));
     }
 }

@@ -22,6 +22,12 @@ public class MeetingResponse {
     @Schema(description = "Tên series", example = "One Piece")
     private String seriesTitle;
 
+    @Schema(description = "URL ảnh bìa series", example = "https://example.com/cover.jpg")
+    private String seriesCoverImageUrl;
+
+    @Schema(description = "Màu nền fallback của series", example = "#1a1a2e")
+    private String seriesCoverColor;
+
     @Schema(description = "Tiêu đề cuộc họp", example = "Họp phê duyệt series: One Piece")
     private String title;
 

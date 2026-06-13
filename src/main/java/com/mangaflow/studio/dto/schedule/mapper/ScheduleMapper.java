@@ -29,6 +29,7 @@ public interface ScheduleMapper {
      */
     @Mapping(target = "seriesId", source = "series.id")
     @Mapping(target = "seriesTitle", source = "series.title")
+    @Mapping(target = "seriesThumbnail", source = "series.coverImageUrl")
     ScheduleResponse toResponse(PublicationSchedule schedule);
 
     /**
