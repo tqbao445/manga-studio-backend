@@ -10,6 +10,7 @@ import com.mangaflow.studio.model.series.SeriesStatus;
 import com.mangaflow.studio.repository.series.SeriesRepository;
 import com.mangaflow.studio.service.common.WebSocketService;
 import com.mangaflow.studio.service.notification.NotificationService;
+import com.mangaflow.studio.service.schedule.PublicationScheduleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -91,6 +92,12 @@ public class SeriesWorkflowService {
      * Được gọi song song với webSocketService.sendToUser() hiện tại.
      */
     private final NotificationService notificationService;
+
+    /**
+     * publicationScheduleService: Service quản lý lịch phát hành.
+     * Dùng để tự động PAUSE schedule khi series rời khỏi ONGOING.
+     */
+    private final PublicationScheduleService publicationScheduleService;
 
     // ════════════════════════════════════════════════════════════
     // 1b. SUBMIT TO TANTOU — Gửi cho Tantou Editor (Mangaka)
@@ -299,6 +306,11 @@ public class SeriesWorkflowService {
         series.setStatus(target);
 
         SeriesResponse response = seriesMapper.toResponse(seriesRepository.save(series));
+
+        // 📌 Tự động PAUSE schedule khi series rời khỏi ONGOING
+        if (current == SeriesStatus.ONGOING && target != SeriesStatus.ONGOING) {
+            publicationScheduleService.pauseBySeriesId(series.getId());
+        }
 
         // 📌 Gửi notification cho Mangaka nếu series bị huỷ (CANCELLED)
         if (target == SeriesStatus.CANCELLED) {
