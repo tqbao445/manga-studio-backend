@@ -11,6 +11,9 @@ import com.mangaflow.studio.model.series.TargetDemographic;
 import com.mangaflow.studio.service.series.SeriesService;
 import com.mangaflow.studio.service.series.SeriesWorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -66,7 +69,16 @@ public class SeriesController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<SeriesResponse> create(
+            /*
+             * @Parameter với @Content giúp Swagger UI gửi đúng Content-Type: application/json
+             * cho phần JSON. Nếu thiếu, Swagger gửi application/octet-stream gây lỗi:
+             * "Content-Type 'application/octet-stream' is not supported"
+             */
+            @Parameter(description = "Thông tin series (JSON)",
+                       content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                          schema = @Schema(implementation = SeriesRequest.class)))
             @RequestPart("series") @Valid SeriesRequest request,
+            @Parameter(description = "Ảnh bìa (jpg, png, ...)")
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -79,7 +91,11 @@ public class SeriesController {
     @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<SeriesResponse> update(
             @PathVariable Long id,
+            @Parameter(description = "Thông tin series (JSON)",
+                       content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                          schema = @Schema(implementation = SeriesRequest.class)))
             @RequestPart("series") @Valid SeriesRequest request,
+            @Parameter(description = "Ảnh bìa (jpg, png, ...) - không bắt buộc")
             @RequestParam(value = "file", required = false) MultipartFile file,
             @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(seriesService.update(id, request, file, user));

@@ -1,10 +1,12 @@
 package com.mangaflow.studio.repository.series;
 
 import com.mangaflow.studio.model.series.Series;
+import com.mangaflow.studio.model.series.SeriesStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -49,4 +51,14 @@ public interface SeriesRepository extends JpaRepository<Series, Long>,
      * @return số lượng series
      */
     long countByMangakaId(Long mangakaId);
+
+    /**
+     * Tìm tất cả series có status nằm trong danh sách cho trước.
+     * Dùng để lấy danh sách series đang phát hành (ONGOING + AT_RISK)
+     * khi export file Excel form chấm điểm hàng tháng.
+     *
+     * @param statuses Danh sách trạng thái cần lọc
+     * @return Danh sách series khớp
+     */
+    List<Series> findByStatusIn(List<SeriesStatus> statuses);
 }
