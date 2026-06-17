@@ -105,6 +105,7 @@ public interface SeriesMapper {
     @Mapping(target = "chapterCount", ignore = true)
     @Mapping(target = "currentRank", ignore = true)
     @Mapping(target = "currentTier", ignore = true)
+    @Mapping(target = "consecutiveWarningMonths", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Series toEntity(SeriesRequest request, User mangaka);
@@ -153,6 +154,7 @@ public interface SeriesMapper {
     @Mapping(target = "chapterCount", ignore = true)
     @Mapping(target = "currentRank", ignore = true)
     @Mapping(target = "currentTier", ignore = true)
+    @Mapping(target = "consecutiveWarningMonths", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntity(@MappingTarget Series series, SeriesRequest request);
