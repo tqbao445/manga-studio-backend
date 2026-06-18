@@ -4,9 +4,9 @@ import com.mangaflow.studio.common.exception.AppException;
 import com.mangaflow.studio.dto.metric.response.SeriesMetricResponse;
 import com.mangaflow.studio.dto.ranking.response.ImportResultResponse;
 import com.mangaflow.studio.model.chapter.Chapter;
+import com.mangaflow.studio.model.chapter.ChapterStatus;
 import com.mangaflow.studio.model.metric.ChapterMetric;
 import com.mangaflow.studio.model.metric.SeriesMetric;
-import com.mangaflow.studio.model.series.PublishFrequency;
 import com.mangaflow.studio.model.series.Series;
 import com.mangaflow.studio.model.series.SeriesStatus;
 import com.mangaflow.studio.repository.chapter.ChapterRepository;
@@ -24,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -200,6 +201,9 @@ public class SeriesMetricService {
                     if (votes == null) {
                         throw new IllegalArgumentException("Votes is required at row " + excelRowNum);
                     }
+                    if (votes < 0) {
+                        throw new IllegalArgumentException("Votes cannot be negative at row " + excelRowNum);
+                    }
                     if (avgScore == null || avgScore < 0 || avgScore > 10) {
                         throw new IllegalArgumentException(
                                 "AvgScore must be between 0 and 10 at row " + excelRowNum);
@@ -210,11 +214,13 @@ public class SeriesMetricService {
                             .orElseThrow(() -> new IllegalArgumentException(
                                     "Series not found with id: " + seriesId + " at row " + excelRowNum));
 
-                    // ── Lưu ChapterMetric (nếu chapter tồn tại trong DB) ──
+                    // ── Lưu ChapterMetric (nếu chapter PUBLISHED trong DB) ──
+                    // Chỉ lưu ChapterMetric cho chapter đã PUBLISHED — chapter DRAFT/APPROVED không được tính
                     // Nếu chapter chưa có trong DB thì bỏ qua ChapterMetric,
                     // nhưng vẫn dùng dữ liệu Excel để aggregate series-level.
                     if (chapterNo != null) {
                         chapterRepository.findBySeriesIdAndChapterNumber(seriesId, chapterNo)
+                                .filter(ch -> ch.getStatus() == ChapterStatus.PUBLISHED)
                                 .ifPresent(chapter -> saveChapterMetric(chapter, month, votes, avgScore));
                     }
 
@@ -451,11 +457,8 @@ public class SeriesMetricService {
      * <p>
      * ─── Sheet 1: "Chapter Scoring" ───
      *   Chief Board điền Votes và AvgScore cho từng chapter.
-     *   Số dòng mỗi series phụ thuộc vào publishFrequency:
-     *     - WEEKLY   → 4 dòng (4 chapters/tháng)
-     *     - BI_WEEKLY → 2 dòng (2 chapters/tháng)
-     *     - MONTHLY   → 1 dòng (1 chapter/tháng)
-     *   ChapterNo bắt đầu từ (tổng số chapters hiện tại + 1).
+     *   Chỉ lấy chapter đã PUBLISHED trong tháng cần export (dựa trên publishDate).
+     *   Nếu series có 0 chapter PUBLISHED trong tháng → không xuất hiện trên Sheet 1.
      *   Votes và AvgScore để trống.
      * <p>
      * ─── Sheet 2: "Series Ranking" ───
@@ -537,38 +540,39 @@ public class SeriesMetricService {
             int chapterRowIdx = 1;
 
             // Duyệt từng series để tạo chapter rows
+            // ── Lấy chapter PUBLISHED trong tháng → số dòng = số chapter thật ──
+            YearMonth ym = YearMonth.parse(month);
+            LocalDateTime monthStart = ym.atDay(1).atStartOfDay();
+            LocalDateTime monthEnd = ym.atEndOfMonth().atTime(23, 59, 59);
+
             for (Series series : activeSeries) {
 
-                // ── Xác định số chapter cần tạo dựa trên publishFrequency ──
-                // WEEKLY → 4 chapters/tháng
-                // BI_WEEKLY → 2 chapters/tháng
-                // MONTHLY → 1 chapter/tháng
-                int expectedChapters;
-                PublishFrequency freq = series.getPublishFrequency();
-                if (freq == PublishFrequency.WEEKLY) {
-                    expectedChapters = 4;
-                } else if (freq == PublishFrequency.BI_WEEKLY) {
-                    expectedChapters = 2;
-                } else {
-                    expectedChapters = 1; // MONTHLY hoặc null → mặc định 1
+                // Query chapter PUBLISHED của series trong tháng này
+                List<Chapter> publishedChapters = chapterRepository
+                        .findBySeriesIdAndStatusAndPublishDateBetween(
+                                series.getId(),
+                                ChapterStatus.PUBLISHED,
+                                monthStart,
+                                monthEnd);
+
+                if (publishedChapters.isEmpty()) {
+                    // Không có chapter nào được publish trong tháng → skip khỏi Sheet 1
+                    // Ranking sẽ tự tạo 0-score cho series này (xem RankingService.calculateRankings)
+                    continue;
                 }
 
-                // ── Lấy số chapter hiện tại để tính ChapterNo bắt đầu ──
-                long existingChapters = chapterRepository.countBySeriesId(series.getId());
-                int startChapterNo = (int) existingChapters + 1;
-
-                // ── Tạo các dòng chapter ──
-                for (int c = 0; c < expectedChapters; c++) {
+                // ── Tạo 1 dòng cho mỗi chapter PUBLISHED ──
+                for (Chapter ch : publishedChapters) {
                     Row row = chapterSheet.createRow(chapterRowIdx++);
 
                     // Cột 0: SeriesId
                     row.createCell(0).setCellValue(series.getId());
                     // Cột 1: SeriesTitle
                     row.createCell(1).setCellValue(series.getTitle() != null ? series.getTitle() : "");
-                    // Cột 2: ChapterNo (bắt đầu từ số tiếp theo)
-                    row.createCell(2).setCellValue(startChapterNo + c);
-                    // Cột 3: ChapterTitle (để trống)
-                    row.createCell(3).setCellValue("");
+                    // Cột 2: ChapterNo thật của chapter
+                    row.createCell(2).setCellValue(ch.getChapterNumber());
+                    // Cột 3: ChapterTitle thật
+                    row.createCell(3).setCellValue(ch.getTitle() != null ? ch.getTitle() : "");
                     // Cột 4: Votes (để trống — Chief tự điền)
                     row.createCell(4).setCellValue("");
                     // Cột 5: AvgScore (để trống — Chief tự điền)
@@ -777,6 +781,40 @@ public class SeriesMetricService {
     @Transactional(readOnly = true)
     public List<SeriesMetricResponse> getMetricsBySeries(Long seriesId) {
         List<SeriesMetric> metrics = metricRepository.findBySeriesIdOrderByMonthDesc(seriesId);
+        return metrics.stream()
+                .map(m -> SeriesMetricResponse.builder()
+                        .id(m.getId())
+                        .seriesId(m.getSeries().getId())
+                        .seriesTitle(m.getSeries().getTitle())
+                        .month(m.getMonth())
+                        .totalVotes(m.getTotalVotes())
+                        .avgScore(m.getAvgScore())
+                        .compositeScore(m.getCompositeScore())
+                        .createdAt(m.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<SeriesMetricResponse> getHistoryByMonth(String month) {
+        List<SeriesMetric> metrics = metricRepository.findByMonth(month);
+        return metrics.stream()
+                .map(m -> SeriesMetricResponse.builder()
+                        .id(m.getId())
+                        .seriesId(m.getSeries().getId())
+                        .seriesTitle(m.getSeries().getTitle())
+                        .month(m.getMonth())
+                        .totalVotes(m.getTotalVotes())
+                        .avgScore(m.getAvgScore())
+                        .compositeScore(m.getCompositeScore())
+                        .createdAt(m.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<SeriesMetricResponse> getAllMetrics() {
+        List<SeriesMetric> metrics = metricRepository.findAll();
         return metrics.stream()
                 .map(m -> SeriesMetricResponse.builder()
                         .id(m.getId())

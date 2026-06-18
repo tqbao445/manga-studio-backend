@@ -3,14 +3,10 @@ package com.mangaflow.studio.service.series;
 import com.mangaflow.studio.common.exception.AppException;
 import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.series.mapper.SeriesMapper;
-import com.mangaflow.studio.dto.series.request.ApproveRequest;
-import com.mangaflow.studio.dto.series.request.RejectRequest;
 import com.mangaflow.studio.dto.series.request.UpdateStatusRequest;
 import com.mangaflow.studio.dto.series.response.SeriesResponse;
-import com.mangaflow.studio.model.auth.User;
 import com.mangaflow.studio.model.series.Series;
 import com.mangaflow.studio.model.series.SeriesStatus;
-import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
 import com.mangaflow.studio.service.common.WebSocketService;
 import com.mangaflow.studio.service.notification.NotificationService;
@@ -24,45 +20,45 @@ import org.springframework.transaction.annotation.Transactional;
  * ── SeriesWorkflowService ──
  * Service chịu trách nhiệm quy trình duyệt (approval workflow)
  * và chuyển trạng thái (state machine) của Series.
- *
+ * <p>
  * 📌 Tách biệt khỏi SeriesService vì:
- *    - Workflow có business logic phức tạp (state transitions, editorial gán editor).
- *    - Workflow chỉ liên quan đến status, không liên quan đến CRUD thông tin series.
- *    - Dễ bảo trì — thay đổi quy trình duyệt không ảnh hưởng CRUD.
- *
+ * - Workflow có business logic phức tạp (state transitions, editorial gán editor).
+ * - Workflow chỉ liên quan đến status, không liên quan đến CRUD thông tin series.
+ * - Dễ bảo trì — thay đổi quy trình duyệt không ảnh hưởng CRUD.
+ * <p>
  * ═══════════════════════════════════════════════════════
- *  State Machine (biểu đồ trạng thái):
+ * State Machine (biểu đồ trạng thái):
  * ═══════════════════════════════════════════════════════
- *
- *                          ┌──────────┐
- *                    ┌──── │  DRAFT   │ ◄────── tantouReject()
- *                    │     └────┬─────┘
- *                    │          │ submitToTantou()
- *                    │          ▼
- *                    │   ┌───────────────┐
- *                    │   │ PENDING_TANTOU│
- *                    │   └──┬────────┬───┘
- *                    │      │ tantou │ tantou
- *                    │      │Approve │ Reject
- *                    │      ▼        ▼
- *                    │ ┌─────────────────┐
- *                    │ │PENDING_BOARD_VOTE│
- *                    │ └──┬──────────┬───┘
- *                    │    │ EB       │ EB
- *                    │    │finalize  │ finalize
- *                    │    ▼          ▼
- *                    │ ┌────────┐ ┌───────┐
- *                    │ │ONGOING │ │ DRAFT │
- *                    │ └───┬────┘ └───────┘
- *                    │     │ updateStatus()
- *                    │     ├────► HIATUS
- *                    │     ├────► AT_RISK
- *                    │     ├────► CANCELLED
- *                    │     └────► COMPLETED
- *                    │
-     *
+ * <p>
+ * ┌──────────┐
+ * ┌──── │  DRAFT   │ ◄────── tantouReject()
+ * │     └────┬─────┘
+ * │          │ submitToTantou()
+ * │          ▼
+ * │   ┌───────────────┐
+ * │   │ PENDING_TANTOU│
+ * │   └──┬────────┬───┘
+ * │      │ tantou │ tantou
+ * │      │Approve │ Reject
+ * │      ▼        ▼
+ * │ ┌─────────────────┐
+ * │ │PENDING_BOARD_VOTE│
+ * │ └──┬──────────┬───┘
+ * │    │ EB       │ EB
+ * │    │finalize  │ finalize
+ * │    ▼          ▼
+ * │ ┌────────┐ ┌───────┐
+ * │ │ONGOING │ │ DRAFT │
+ * │ └───┬────┘ └───────┘
+ * │     │ updateStatus()
+ * │     ├────► HIATUS
+ * │     ├────► AT_RISK
+ * │     ├────► CANCELLED
+ * │     └────► COMPLETED
+ * │
+ * <p>
  * 📌 Các trạng thái không có transition:
- *    APPROVED, REJECTED — dự phòng cho tương lai, chưa dùng.
+ * APPROVED, REJECTED — dự phòng cho tương lai, chưa dùng.
  */
 @Service
 @RequiredArgsConstructor
@@ -110,7 +106,7 @@ public class SeriesWorkflowService {
     /**
      * Gửi series cho Tantou Editor phê duyệt.
      * DRAFT → PENDING_TANTOU
-     *
+     * <p>
      * Điều kiện:
      * - Series phải DRAFT.
      * - Series phải có tantouEditor != null.
@@ -163,7 +159,7 @@ public class SeriesWorkflowService {
     /**
      * Tantou Editor phê duyệt series.
      * PENDING_TANTOU → PENDING_BOARD_VOTE
-     *
+     * <p>
      * Điều kiện:
      * - Series phải PENDING_TANTOU.
      * - User gọi phải là tantouEditor của series.
@@ -215,7 +211,7 @@ public class SeriesWorkflowService {
     /**
      * Tantou Editor từ chối series, đưa về DRAFT.
      * PENDING_TANTOU → DRAFT
-     *
+     * <p>
      * Điều kiện:
      * - Series phải PENDING_TANTOU.
      * - User gọi phải là tantouEditor của series.
@@ -268,24 +264,24 @@ public class SeriesWorkflowService {
 
     /**
      * Thay đổi trạng thái series (dành cho Editorial Board).
-     *
+     * <p>
      * 📌 Ai gọi:
-     *    Chỉ EDITORIAL_BOARD — @PreAuthorize ở Controller.
-     *
+     * Chỉ EDITORIAL_BOARD — @PreAuthorize ở Controller.
+     * <p>
      * 📌 updateStatus xử lý các chuyển đổi giữa ONGOING, HIATUS, AT_RISK,...
-     *
+     * <p>
      * 📌 State machine validation:
-     *    Gọi isValidTransition() để kiểm tra transition hợp lệ.
-     *    Nếu không hợp lệ → throw BAD_REQUEST.
-     *
+     * Gọi isValidTransition() để kiểm tra transition hợp lệ.
+     * Nếu không hợp lệ → throw BAD_REQUEST.
+     * <p>
      * 📌 Các transition được phép:
-     *    ┌──────────┬──────────────────────────────────────┐
-     *    │ Từ       │ Đến                                   │
-     *    ├──────────┼──────────────────────────────────────┤
-     *    │ ONGOING  │ HIATUS, AT_RISK, CANCELLED, COMPLETED │
-     *    │ HIATUS   │ ONGOING, CANCELLED                    │
-     *    │ AT_RISK  │ ONGOING, CANCELLED                    │
-     *    └──────────┴──────────────────────────────────────┘
+     * ┌──────────┬──────────────────────────────────────┐
+     * │ Từ       │ Đến                                   │
+     * ├──────────┼──────────────────────────────────────┤
+     * │ ONGOING  │ HIATUS, AT_RISK, CANCELLED, COMPLETED │
+     * │ HIATUS   │ ONGOING, CANCELLED                    │
+     * │ AT_RISK  │ ONGOING, CANCELLED                    │
+     * └──────────┴──────────────────────────────────────┘
      *
      * @param id      ID của series
      * @param request chứa status muốn chuyển đến (@NotNull)
@@ -338,35 +334,35 @@ public class SeriesWorkflowService {
 
     /**
      * Kiểm tra xem việc chuyển trạng thái từ current → target có hợp lệ không.
-     *
+     * <p>
      * 📌 Dùng switch expression (Java 21):
-     *    Gọn và rõ ràng hơn if-else chain.
-     *    Mỗi case trả về boolean trực tiếp.
-     *
+     * Gọn và rõ ràng hơn if-else chain.
+     * Mỗi case trả về boolean trực tiếp.
+     * <p>
      * 📌 State machine rules:
-     *
-     *    ┌──────────┬──────────────┬──────────────────────────────┐
-     *    │ Current  │ Target(s)    │ Ý nghĩa                      │
-     *    ├──────────┼──────────────┼──────────────────────────────┤
-     *    │ ONGOING  │ HIATUS       │ Tạm ngưng vì lý do sức khoẻ  │
-     *    │ ONGOING  │ AT_RISK      │ Cảnh báo — nguy cơ bị huỷ    │
-     *    │ ONGOING  │ CANCELLED    │ Huỷ bỏ — không tiếp tục      │
-     *    │ ONGOING  │ COMPLETED    │ Kết thúc — hoàn thành        │
-     *    ├──────────┼──────────────┼──────────────────────────────┤
-     *    │ HIATUS   │ ONGOING      │ Quay lại — tiếp tục sản xuất │
-     *    │ HIATUS   │ CANCELLED    │ Huỷ hẳn                      │
-     *    ├──────────┼──────────────┼──────────────────────────────┤
-     *    │ AT_RISK  │ ONGOING      │ Thoát cảnh báo — ổn định lại │
-     *    │ AT_RISK  │ CANCELLED    │ Huỷ                          │
-     *    └──────────┴──────────────┴──────────────────────────────┘
-     *
- * 📌 Các trạng thái không được phép:
- *    - DRAFT: có endpoint submitToTantou
- *    - PENDING_TANTOU: dùng tantouApprove / tantouReject
- *    - PENDING_BOARD_VOTE: dùng EB vote module
- *    - PENDING_BOARD_VOTE: dùng EB vote module (BE2)
- *    - CANCELLED, COMPLETED: không thể chuyển tiếp (terminal states)
- *    - APPROVED, REJECTED: chưa dùng đến
+     * <p>
+     * ┌──────────┬──────────────┬──────────────────────────────┐
+     * │ Current  │ Target(s)    │ Ý nghĩa                      │
+     * ├──────────┼──────────────┼──────────────────────────────┤
+     * │ ONGOING  │ HIATUS       │ Tạm ngưng vì lý do sức khoẻ  │
+     * │ ONGOING  │ AT_RISK      │ Cảnh báo — nguy cơ bị huỷ    │
+     * │ ONGOING  │ CANCELLED    │ Huỷ bỏ — không tiếp tục      │
+     * │ ONGOING  │ COMPLETED    │ Kết thúc — hoàn thành        │
+     * ├──────────┼──────────────┼──────────────────────────────┤
+     * │ HIATUS   │ ONGOING      │ Quay lại — tiếp tục sản xuất │
+     * │ HIATUS   │ CANCELLED    │ Huỷ hẳn                      │
+     * ├──────────┼──────────────┼──────────────────────────────┤
+     * │ AT_RISK  │ ONGOING      │ Thoát cảnh báo — ổn định lại │
+     * │ AT_RISK  │ CANCELLED    │ Huỷ                          │
+     * └──────────┴──────────────┴──────────────────────────────┘
+     * <p>
+     * 📌 Các trạng thái không được phép:
+     * - DRAFT: có endpoint submitToTantou
+     * - PENDING_TANTOU: dùng tantouApprove / tantouReject
+     * - PENDING_BOARD_VOTE: dùng EB vote module
+     * - PENDING_BOARD_VOTE: dùng EB vote module (BE2)
+     * - CANCELLED, COMPLETED: không thể chuyển tiếp (terminal states)
+     * - APPROVED, REJECTED: chưa dùng đến
      *
      * @param current trạng thái hiện tại của series
      * @param target  trạng thái muốn chuyển đến

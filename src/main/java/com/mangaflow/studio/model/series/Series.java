@@ -210,16 +210,8 @@ public class Series {
     @Column(nullable = false)
     private Integer consecutiveWarningMonths = 0;
 
-    /**
-     * publishFrequency: Tần suất phát hành của series.
-     * Được RankingService tự động gán sau mỗi kỳ tính ranking:
-     * - S, A → WEEKLY
-     * - B, C → BI_WEEKLY
-     * - D → MONTHLY
-     */
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    private PublishFrequency publishFrequency;
+    // ── publishFrequency đã được thay thế bằng PublicationSchedule (ScheduleType WEEKLY/MONTHLY) ──
+    // Chief/EB chủ động quản lý schedule qua API schedule. RankingService KHÔNG còn set publishFrequency.
 
     /**
      * statusNote: Ghi chú kèm trạng thái hiện tại.

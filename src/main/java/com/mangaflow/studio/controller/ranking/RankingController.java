@@ -127,10 +127,9 @@ public class RankingController {
      * Export file Excel form chấm điểm hàng tháng cho Chief Board (2 SHEETS).
      * <p>
      * 📋 Sheet 1 "Chapter Scoring":
-     *   Chi tiết từng chapter theo từng series, dựa trên publishFrequency:
+     *   Chi tiết từng chapter theo từng series, dựa trên PublicationSchedule ACTIVE:
      *   - WEEKLY → 4 chapters/tháng
-     *   - BI_WEEKLY → 2 chapters/tháng
-     *   - MONTHLY → 1 chapter/tháng
+     *   - MONTHLY / không có schedule → 1 chapter/tháng
      *   Các cột: SeriesId | SeriesTitle | ChapterNo | Title | Votes | AvgScore
      *   Votes và AvgScore để trống — Chief điền sau đó upload qua POST /api/ranking/import-chapters
      * <p>
@@ -181,10 +180,14 @@ public class RankingController {
      * @return Danh sách RankingEntryResponse đã sắp xếp
      */
     @Operation(summary = "Xem bảng xếp hạng series",
-               description = "Trả về danh sách tất cả series đã có thứ hạng, sorted theo rank.")
+               description = "Trả về danh sách tất cả series đã có thứ hạng, sorted theo rank. "
+                           + "Có thể lọc theo tháng (nếu không truyền month thì dùng current rank trên Series).")
     @GetMapping
-    public ResponseEntity<List<RankingEntryResponse>> getRankings() {
-        return ResponseEntity.ok(rankingService.getRankings());
+    @PreAuthorize("hasAnyRole('EDITORIAL_BOARD', 'CHIEF_EDITOR')")
+    public ResponseEntity<List<RankingEntryResponse>> getRankings(
+            @Parameter(description = "Tháng cần xem ranking (YYYY-MM), optional")
+            @RequestParam(required = false) String month) {
+        return ResponseEntity.ok(rankingService.getRankings(month));
     }
 
     /**
@@ -197,6 +200,7 @@ public class RankingController {
     @Operation(summary = "Xem ranking theo tier",
                description = "Trả về bảng xếp hạng nhóm theo tier S/A/B/C/D.")
     @GetMapping("/tiers")
+    @PreAuthorize("hasAnyRole('EDITORIAL_BOARD', 'CHIEF_EDITOR')")
     public ResponseEntity<Map<String, List<RankingEntryResponse>>> getRankingsByTier() {
         return ResponseEntity.ok(rankingService.getRankingsByTier());
     }
@@ -247,8 +251,21 @@ public class RankingController {
     @Operation(summary = "Xem lịch sử metrics của 1 series",
                description = "Trả về tất cả bản ghi SeriesMetric theo tháng của series, mới nhất trước.")
     @GetMapping("/series/{seriesId}/metrics")
+    @PreAuthorize("hasAnyRole('EDITORIAL_BOARD', 'CHIEF_EDITOR')")
     public ResponseEntity<List<SeriesMetricResponse>> getSeriesMetrics(
             @PathVariable Long seriesId) {
         return ResponseEntity.ok(seriesMetricService.getMetricsBySeries(seriesId));
+    }
+
+    // ========================================================================
+    // 📊 6. LỊCH SỬ RANKING THEO THÁNG (GET)
+    // ========================================================================
+
+    @Operation(summary = "Xem lịch sử ranking tất cả tháng",
+               description = "Trả về tất cả SeriesMetric gộp theo tháng, dùng cho History modal.")
+    @GetMapping("/metrics/history")
+    @PreAuthorize("hasAnyRole('EDITORIAL_BOARD', 'CHIEF_EDITOR')")
+    public ResponseEntity<List<SeriesMetricResponse>> getAllMetrics() {
+        return ResponseEntity.ok(seriesMetricService.getAllMetrics());
     }
 }

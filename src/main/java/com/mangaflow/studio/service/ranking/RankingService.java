@@ -5,7 +5,7 @@ import com.mangaflow.studio.dto.ranking.response.RankingEntryResponse;
 import com.mangaflow.studio.model.auth.Role;
 import com.mangaflow.studio.model.auth.User;
 import com.mangaflow.studio.model.metric.SeriesMetric;
-import com.mangaflow.studio.model.series.PublishFrequency;
+
 import com.mangaflow.studio.model.series.Series;
 import com.mangaflow.studio.model.series.SeriesStatus;
 import com.mangaflow.studio.repository.auth.UserRepository;
@@ -62,7 +62,14 @@ public class RankingService {
      * <p>
      * BƯỚC 1 - Lấy dữ liệu:
      *   - Lấy tất cả SeriesMetric của tháng cần tính từ DB
-     *   - Nếu không có dữ liệu → thoát (không làm gì)
+     *   - Nếu không có dữ liệu → vẫn tiếp tục xử lý (không return)
+     * <p>
+     * BƯỚC 1B - Auto fill 0-score cho series ONGOING/AT_RISK không có metric:
+     *   - Tìm tất cả series ONGOING/AT_RISK
+     *   - Series nào chưa có SeriesMetric trong tháng này → tạo metric với
+     *     totalVotes=0, avgScore=0, compositeScore=0
+     *   - Lưu vào DB để series này vẫn được xếp hạng, xuống D
+     *   - Đảm bảo series "lười" không thể trốn khỏi ranking
      * <p>
      * BƯỚC 2 - Tính lại compositeScore:
      *   - Mỗi metric: compositeScore = totalVotes * 0.6 + (totalVotes * avgScore / 10.0) * 0.4
@@ -106,8 +113,33 @@ public class RankingService {
     @Transactional
     public void calculateRankings(String month) {
         // ---- BƯỚC 1: Lấy tất cả metrics của tháng này ----
-        List<SeriesMetric> metrics = metricRepository.findByMonth(month);
-        if (metrics.isEmpty()) return;  // Không có dữ liệu → không làm gì
+        List<SeriesMetric> metrics = new ArrayList<>(metricRepository.findByMonth(month));
+
+        // ---- BƯỚC 1B: Auto fill 0-score cho series ONGOING/AT_RISK không có metric ----
+        // Series không có chapter nào trong tháng → không có dữ liệu import → tự tạo 0-score
+        // để series vẫn bị xếp hạng (thường xuống D) thay vì trốn khỏi ranking
+        List<Series> activeSeries = seriesRepository.findByStatusIn(
+                List.of(SeriesStatus.ONGOING, SeriesStatus.AT_RISK));
+        Set<Long> seriesWithMetrics = metrics.stream()
+                .map(m -> m.getSeries().getId())
+                .collect(Collectors.toSet());
+
+        for (Series series : activeSeries) {
+            if (!seriesWithMetrics.contains(series.getId())) {
+                SeriesMetric zeroMetric = SeriesMetric.builder()
+                        .series(series)
+                        .month(month)
+                        .totalVotes(0L)
+                        .avgScore(0.0)
+                        .compositeScore(0.0)
+                        .build();
+                metricRepository.save(zeroMetric);
+                metrics.add(zeroMetric);
+            }
+        }
+
+        // Nếu không có bất kỳ series nào (cả imported + auto 0-score) → thoát
+        if (metrics.isEmpty()) return;
 
         // ---- BƯỚC 2: Tính lại compositeScore cho mỗi metric ----
         for (SeriesMetric m : metrics) {
@@ -158,17 +190,8 @@ public class RankingService {
                 matchedMetric.setTier(tier);
             }
 
-            // ---- GÁN TẦN SUẤT PHÁT HÀNH DỰA TRÊN TIER ----
-            // S, A → WEEKLY: ra chap hàng tuần (phần thưởng cho chất lượng cao)
-            // B, C → BI_WEEKLY: ra chap 2 tuần/lần
-            // D → MONTHLY: ra chap mỗi tháng (bị giảm tần suất để tập trung cải thiện)
-            if ("S".equals(tier) || "A".equals(tier)) {
-                series.setPublishFrequency(PublishFrequency.WEEKLY);
-            } else if ("B".equals(tier) || "C".equals(tier)) {
-                series.setPublishFrequency(PublishFrequency.BI_WEEKLY);
-            } else if ("D".equals(tier)) {
-                series.setPublishFrequency(PublishFrequency.MONTHLY);
-            }
+            // ── publishFrequency đã được thay thế bằng PublicationSchedule (ScheduleType WEEKLY/MONTHLY) ──
+            // Chief/EB chủ động quản lý schedule qua API. RankingService không can thiệp.
 
             // ---- XỬ LÝ SERIES THUỘC TIER D (CẢNH BÁO, KHÔNG TỰ ĐỘNG HỦY) ----
             if ("D".equals(tier)) {
@@ -256,12 +279,25 @@ public class RankingService {
      */
     @Transactional(readOnly = true)
     public List<RankingEntryResponse> getRankings() {
-        // Lấy tất cả series từ DB
+        return getRankings(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RankingEntryResponse> getRankings(String month) {
+        if (month != null) {
+            List<SeriesMetric> metrics = metricRepository.findByMonth(month);
+            metrics.sort(Comparator.comparingDouble(SeriesMetric::getCompositeScore).reversed());
+            List<RankingEntryResponse> result = new ArrayList<>(metrics.size());
+            for (int i = 0; i < metrics.size(); i++) {
+                result.add(toRankingEntry(metrics.get(i), metrics.get(i).getSeries(), i + 1));
+            }
+            return result;
+        }
         List<Series> allSeries = seriesRepository.findAll();
         return allSeries.stream()
-                .filter(s -> s.getCurrentRank() != null)          // Chỉ lấy series đã có rank
-                .sorted(Comparator.comparingInt(Series::getCurrentRank))  // Sắp xếp theo rank
-                .map(this::toRankingEntry)                        // Map entity → DTO
+                .filter(s -> s.getCurrentRank() != null)
+                .sorted(Comparator.comparingInt(Series::getCurrentRank))
+                .map(this::toRankingEntry)
                 .collect(Collectors.toList());
     }
 
@@ -382,13 +418,36 @@ public class RankingService {
                 .tier(series.getCurrentTier() != null ? series.getCurrentTier() : "N/A")
                 .seriesId(series.getId())
                 .seriesTitle(series.getTitle())
-                .genre(series.getGenre() != null ? series.getGenre().name() : null)
+                .genre(series.getGenres() != null && !series.getGenres().isEmpty()
+                        ? series.getGenres().get(0).name() : null)
                 .mangakaName(series.getMangaka() != null
                         ? (series.getMangaka().getDisplayName() != null
                             ? series.getMangaka().getDisplayName()
                             : series.getMangaka().getUsername())
                         : null)
                 .status(series.getStatus() != null ? series.getStatus().name() : null)
+                .consecutiveWarningMonths(series.getConsecutiveWarningMonths())
+                .build();
+    }
+
+    private RankingEntryResponse toRankingEntry(SeriesMetric metric, Series series, int rank) {
+        return RankingEntryResponse.builder()
+                .rank(rank)
+                .tier(metric.getTier() != null ? metric.getTier() :
+                        (series.getCurrentTier() != null ? series.getCurrentTier() : "N/A"))
+                .seriesId(series.getId())
+                .seriesTitle(series.getTitle())
+                .genre(series.getGenres() != null && !series.getGenres().isEmpty()
+                        ? series.getGenres().get(0).name() : null)
+                .mangakaName(series.getMangaka() != null
+                        ? (series.getMangaka().getDisplayName() != null
+                            ? series.getMangaka().getDisplayName()
+                            : series.getMangaka().getUsername())
+                        : null)
+                .status(series.getStatus() != null ? series.getStatus().name() : null)
+                .totalVotes(metric.getTotalVotes())
+                .avgScore(metric.getAvgScore())
+                .compositeScore(metric.getCompositeScore())
                 .consecutiveWarningMonths(series.getConsecutiveWarningMonths())
                 .build();
     }

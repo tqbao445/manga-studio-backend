@@ -17,6 +17,7 @@ import com.mangaflow.studio.repository.meeting.SeriesMeetingRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
+@Order(1)
 @RequiredArgsConstructor
 public class DataSeeder implements CommandLineRunner {
 
