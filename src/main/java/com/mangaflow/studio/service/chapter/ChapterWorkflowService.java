@@ -47,6 +47,11 @@ public class ChapterWorkflowService {
                     "All pages must be completed before submitting for review");
         }
 
+        if (series.getStatus() != SeriesStatus.ONGOING) {
+            throw new AppException(HttpStatus.BAD_REQUEST,
+                    "Series must be ONGOING before chapters can be submitted for review");
+        }
+
         chapter.setStatus(ChapterStatus.IN_REVIEW);
         ChapterResponse response = chapterMapper.toResponse(chapterRepository.save(chapter));
 

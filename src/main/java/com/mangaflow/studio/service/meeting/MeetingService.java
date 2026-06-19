@@ -12,6 +12,8 @@ import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.repository.auth.VoteCriterionRepository;
 import com.mangaflow.studio.repository.meeting.*;
 import com.mangaflow.studio.repository.series.SeriesRepository;
+import com.mangaflow.studio.service.common.WebSocketService;
+import com.mangaflow.studio.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -42,6 +45,8 @@ public class MeetingService {
     private final VoteCriterionRepository voteCriterionRepository;
     private final SeriesRepository seriesRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
+    private final WebSocketService webSocketService;
 
     // ════════════════════════════════════════════════════════════
     // 1. CREATE MEETING — Chief Editor tạo cuộc họp
@@ -85,7 +90,7 @@ public class MeetingService {
                 .build();
         meeting = seriesMeetingRepository.save(meeting);
 
-        // Tạo participant từ danh sách ID
+        // Tạo participant từ danh sách ID + gửi notification + WebSocket
         Long meetingId = meeting.getId();
         for (Long participantId : request.getParticipantIds()) {
             User participantUser = userRepository.findById(participantId)
@@ -97,6 +102,21 @@ public class MeetingService {
                     .user(participantUser)
                     .build();
             meetingParticipantRepository.save(mp);
+
+            // Gửi notification + WebSocket cho participant (trừ creator)
+            if (!participantId.equals(creator.getId())) {
+                webSocketService.sendToUser(participantId, "MEETING_INVITATION",
+                        "You have been invited to: " + meeting.getTitle());
+
+                notificationService.createAndSend(
+                        participantId,
+                        "MEETING_INVITATION",
+                        "Meeting: " + meeting.getTitle(),
+                        "You have been invited to a meeting for \"" + series.getTitle() + "\"",
+                        "MEETING",
+                        meeting.getId()
+                );
+            }
         }
 
         return buildMeetingResponse(meeting);
@@ -277,6 +297,13 @@ public class MeetingService {
             seriesVoteScoreRepository.save(score);
         }
 
+        // Gửi realtime update cho Chief Editor (MEETING_UPDATED)
+        User meetingCreator = meeting.getCreatedBy();
+        if (!meetingCreator.getId().equals(user.getUserId())) {
+            MeetingResponse currentState = buildMeetingResponse(meeting);
+            webSocketService.sendToUser(meetingCreator.getId(), "MEETING_UPDATED", currentState);
+        }
+
         // ═══ Auto-complete: nếu tất cả EDITORIAL_BOARD đã vote → COMPLETED ═══
         // Logic:
         // 1. Đếm tổng số EDITORIAL_BOARD được mời tham gia meeting này
@@ -291,6 +318,23 @@ public class MeetingService {
                 meeting.setStatus(MeetingStatus.COMPLETED);
                 meeting.setEndedAt(LocalDateTime.now());
                 seriesMeetingRepository.save(meeting);
+
+                // Gửi MEETING_COMPLETED cho tất cả participants
+                MeetingResponse finalState = buildMeetingResponse(meeting);
+                List<MeetingParticipant> allParticipants = meetingParticipantRepository.findByMeetingId(meetingId);
+                for (MeetingParticipant mp : allParticipants) {
+                    webSocketService.sendToUser(mp.getUser().getId(), "MEETING_COMPLETED", finalState);
+                    notificationService.createAndSend(
+                            mp.getUser().getId(),
+                            "MEETING_COMPLETED",
+                            "Voting completed: " + meeting.getTitle(),
+                            "All editorial board members have voted for \""
+                                    + meeting.getSeries().getTitle()
+                                    + "\".",
+                            "MEETING",
+                            meeting.getId()
+                    );
+                }
             }
         }
 
@@ -345,6 +389,11 @@ public class MeetingService {
                     "This meeting already has a decision: " + meeting.getDecision());
         }
 
+        if (meeting.getStatus() != MeetingStatus.COMPLETED) {
+            throw new AppException(HttpStatus.BAD_REQUEST,
+                    "All editorial board members must vote before a decision can be made");
+        }
+
         String decision = request.getDecision().toUpperCase();
         if (!decision.equals("APPROVED") && !decision.equals("REJECTED")) {
             throw new AppException(HttpStatus.BAD_REQUEST,
@@ -366,7 +415,33 @@ public class MeetingService {
         seriesRepository.save(series);
         meeting = seriesMeetingRepository.save(meeting);
 
-        return buildMeetingResponse(meeting);
+        // Push MEETING_DECISION_MADE đến tất cả participants
+        MeetingResponse meetingResponse = buildMeetingResponse(meeting);
+        List<MeetingParticipant> allParticipants = meetingParticipantRepository.findByMeetingId(meetingId);
+        for (MeetingParticipant mp : allParticipants) {
+            webSocketService.sendToUser(mp.getUser().getId(), "MEETING_DECISION_MADE", meetingResponse);
+        }
+
+        // Push SERIES_STATUS_UPDATED đến mangaka
+        Map<String, Object> seriesUpdate = Map.of(
+                "id", series.getId(),
+                "status", series.getStatus().name()
+        );
+        webSocketService.sendToUser(series.getMangaka().getId(), "SERIES_STATUS_UPDATED", seriesUpdate);
+
+        // Notification cho mangaka
+        notificationService.createAndSend(
+                series.getMangaka().getId(),
+                "SERIES_" + decision,
+                decision.equals("APPROVED") ? "Series approved!" : "Series rejected",
+                "Your series \"" + series.getTitle() + "\" has been "
+                        + (decision.equals("APPROVED") ? "approved and is now ONGOING."
+                        : "rejected and returned to DRAFT."),
+                "SERIES",
+                series.getId()
+        );
+
+        return meetingResponse;
     }
 
     // ════════════════════════════════════════════════════════════

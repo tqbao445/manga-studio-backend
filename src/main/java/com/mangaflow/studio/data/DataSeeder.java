@@ -55,6 +55,7 @@ public class DataSeeder implements CommandLineRunner {
         addIfMissing("taniguchi@editor.com", "taniguchi", "Taniguchi", Role.TANTOU_EDITOR, toSave);
         addIfMissing("kimura@board.com", "kimura", "Kimura", Role.EDITORIAL_BOARD, toSave);
         addIfMissing("nishida@board.com", "nishida", "Nishida", Role.EDITORIAL_BOARD, toSave);
+        addIfMissing("watanabe@board.com", "watanabe", "Watanabe", Role.EDITORIAL_BOARD, toSave);
         addIfMissing("fujimoto@manga.com", "fujimoto", "Fujimoto", Role.MANGAKA, toSave);
         addIfMissing("ito@manga.com", "ito", "Ito", Role.MANGAKA, toSave);
         addIfMissing("chief@editor.com", "chief", "Takahashi", Role.CHIEF_EDITOR, toSave);
@@ -155,14 +156,16 @@ public class DataSeeder implements CommandLineRunner {
 
         User kimura = userRepository.findByEmail("kimura@board.com").orElseThrow();
         User nishida = userRepository.findByEmail("nishida@board.com").orElseThrow();
+        User watanabe = userRepository.findByEmail("watanabe@board.com").orElseThrow();
 
         List<MeetingParticipant> participants = List.of(
                 MeetingParticipant.builder().meeting(meeting).user(kimura).build(),
                 MeetingParticipant.builder().meeting(meeting).user(nishida).build(),
+                MeetingParticipant.builder().meeting(meeting).user(watanabe).build(),
                 MeetingParticipant.builder().meeting(meeting).user(sato).build()
         );
 
         meetingParticipantRepository.saveAll(participants);
-        System.out.println("Seeded 3 meeting participants");
+        System.out.println("Seeded 4 meeting participants");
     }
 }
