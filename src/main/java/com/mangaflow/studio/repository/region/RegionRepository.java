@@ -62,4 +62,13 @@ public interface RegionRepository extends JpaRepository<Region, Long> {
      * @return List<Region> danh sách regions
      */
     List<Region> findByPageIdIn(List<Long> pageIds);
+
+    /**
+     * Lấy danh sách regions thuộc 1 task.
+     * Dùng khi cần lấy regions của task để hiển thị.
+     *
+     * @param taskId ID của task
+     * @return List<Region> danh sách regions
+     */
+    List<Region> findByTaskId(Long taskId);
 }

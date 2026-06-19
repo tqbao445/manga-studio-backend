@@ -96,7 +96,7 @@ public class TaskController {
     @GetMapping("/tasks")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<TaskResponse>> getTasks(
-            @Parameter(description = "Lọc theo trạng thái: TODO, IN_PROGRESS, DONE, REJECTED")
+            @Parameter(description = "Lọc theo trạng thái: TODO, IN_PROGRESS, SUBMITTED, REVISE, DONE")
             @RequestParam(required = false) TaskStatus status,
 
             @Parameter(description = "Lọc theo ID của ASSISTANT được gán")
@@ -222,6 +222,39 @@ public class TaskController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    /**
+     * POST /api/tasks/batch
+     * <p>
+     * Tạo 1 task mới gán cho nhiều regions cùng lúc.
+     * Body chứa regionIds thay vì lấy từ path param.
+     */
+    @Operation(summary = "Tạo task cho nhiều regions",
+            description = "Tạo 1 task duy nhất gán cho nhiều regions. "
+                    + "Mỗi region chỉ thuộc về 1 task. "
+                    + "Chỉ MANGAKA mới được dùng.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Task đã tạo"),
+            @ApiResponse(responseCode = "400", description = "Region đã có task hoặc dữ liệu không hợp lệ"),
+            @ApiResponse(responseCode = "404", description = "Region hoặc user không tồn tại")
+    })
+    @PostMapping("/tasks/batch")
+    @PreAuthorize("hasRole('MANGAKA')")
+    public ResponseEntity<TaskResponse> createBatchTask(
+            @Parameter(description = "Danh sách region IDs + thông tin task")
+            @Valid @RequestBody TaskRequest request,
+
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        if (request.getRegionIds() == null || request.getRegionIds().isEmpty()) {
+            throw new com.mangaflow.studio.common.exception.AppException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "At least one region is required");
+        }
+
+        TaskResponse response = taskService.createBatchTask(request.getRegionIds(), request, user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
     // ════════════════════════════════════════════════════════════════
     // 5. UPDATE TASK — Cập nhật task
     // ════════════════════════════════════════════════════════════════
@@ -229,15 +262,15 @@ public class TaskController {
     /**
      * PUT /api/tasks/{id}
      * <p>
-     * Cập nhật thông tin task. Chỉ sửa được khi TODO hoặc REJECTED.
+     * Cập nhật thông tin task. Chỉ sửa được khi TODO hoặc REVISE.
      * Nếu đổi assistantId → reset assignedAt.
      */
     @Operation(summary = "Cập nhật task",
-            description = "Cập nhật thông tin task. Chỉ sửa được khi TODO hoặc REJECTED. "
+            description = "Cập nhật thông tin task. Chỉ sửa được khi TODO hoặc REVISE. "
                     + "Nếu đổi assistantId → reset assignedAt.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Task đã cập nhật"),
-            @ApiResponse(responseCode = "400", description = "Task không ở TODO/REJECTED hoặc dueDate ở quá khứ"),
+            @ApiResponse(responseCode = "400", description = "Task không ở TODO/REVISE hoặc dueDate ở quá khứ"),
             @ApiResponse(responseCode = "404", description = "Task không tồn tại")
     })
     @PutMapping("/tasks/{id}")
@@ -261,16 +294,18 @@ public class TaskController {
     /**
      * PATCH /api/tasks/{id}/status
      * <p>
-     * Chuyển trạng thái task. ASSISTANT nhận task, MANGAKA từ chối.
+     * Chuyển trạng thái task. ASSISTANT nhận việc hoặc làm lại.
      * <p>
-     * Không hỗ trợ IN_PROGRESS → DONE (dùng submission + review).
+     * Chuyển đổi hợp lệ:
+     *   TODO → IN_PROGRESS : ASSISTANT nhận việc
+     *   REVISE → IN_PROGRESS : ASSISTANT làm lại
      */
     @Operation(summary = "Đổi trạng thái task",
             description = "Chuyển trạng thái task. "
-                    + "TODO → IN_PROGRESS (ASSISTANT), "
-                    + "IN_PROGRESS → REJECTED (MANGAKA), "
-                    + "REJECTED → IN_PROGRESS (ASSISTANT). "
-                    + "(Không hỗ trợ IN_PROGRESS → DONE — dùng submission + review)")
+                    + "TODO → IN_PROGRESS (ASSISTANT nhận việc), "
+                    + "REVISE → IN_PROGRESS (ASSISTANT làm lại). "
+                    + "(IN_PROGRESS → SUBMITTED qua nộp bài, "
+                    + "SUBMITTED → DONE/REVISE qua duyệt bài)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Task đã đổi trạng thái"),
             @ApiResponse(responseCode = "400", description = "Chuyển trạng thái không hợp lệ"),
@@ -353,7 +388,7 @@ public class TaskController {
      * POST /api/tasks/{taskId}/submissions
      * <p>
      * ASSISTANT nộp bài làm. Backend upload file lên Cloudinary, tự động tăng version.
-     * Chỉ nộp được khi task IN_PROGRESS hoặc REJECTED.
+     * Chỉ nộp được khi task IN_PROGRESS. Sau khi nộp, task chuyển sang SUBMITTED.
      * <p>
      * 📌 Multipart form-data:
      *    - resultImage: File ảnh kết quả (bắt buộc, jpg/png/...)
@@ -364,10 +399,10 @@ public class TaskController {
             description = "ASSISTANT nộp bài làm cho task. "
                     + "Backend nhận file ảnh + file nguồn (optional) + note, "
                     + "upload lên Cloudinary và tự động tăng version. "
-                    + "Chỉ nộp được khi task IN_PROGRESS hoặc REJECTED.")
+                    + "Chỉ nộp được khi task IN_PROGRESS.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Bài làm đã nộp"),
-            @ApiResponse(responseCode = "400", description = "Task không ở IN_PROGRESS hoặc REJECTED"),
+            @ApiResponse(responseCode = "400", description = "Task không ở IN_PROGRESS"),
             @ApiResponse(responseCode = "403", description = "Bạn không phải ASSISTANT được gán"),
             @ApiResponse(responseCode = "404", description = "Task không tồn tại")
     })
@@ -402,12 +437,12 @@ public class TaskController {
      * PATCH /api/submissions/{id}/status
      * <p>
      * MANGAKA duyệt bài nộp.
-     * APPROVED → task DONE. REVISION_REQUIRED → task IN_PROGRESS.
+     * APPROVED → task DONE. REVISION_REQUIRED → task REVISE.
      */
     @Operation(summary = "Duyệt bài nộp",
             description = "MANGAKA duyệt bài nộp của ASSISTANT. "
-                    + "APPROVED → task đánh dấu DONE. "
-                    + "REVISION_REQUIRED → task quay về IN_PROGRESS để ASSISTANT sửa.")
+                    + "APPROVED → task hoàn thành (DONE). "
+                    + "REVISION_REQUIRED → task chuyển REVISE để ASSISTANT sửa.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Bài nộp đã duyệt"),
             @ApiResponse(responseCode = "400", description = "Submission không ở SUBMITTED hoặc status không hợp lệ"),

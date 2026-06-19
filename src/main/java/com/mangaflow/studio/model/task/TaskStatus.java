@@ -8,29 +8,34 @@ package com.mangaflow.studio.model.task;
  *  State machine (luồng trạng thái):
  * ═══════════════════════════════════════════════════════════════
  * <pre>
- *     TODO ──────────→ IN_PROGRESS ──────────→ DONE
- *       │                   ▲
- *       │                   │
- *       └── (xoá được)      │
- *                      REJECTED ──────────────→ IN_PROGRESS (làm lại)
+ *     TODO ──────────→ IN_PROGRESS ──────────→ SUBMITTED ────────→ DONE
+ *       │                   ▲                      │
+ *       │                   │                      │
+ *       └── (xoá được)      │                      │ (yêu cầu sửa)
+ *                      REVISE ◄─────────────────────┘
+ *                         │
+ *                         └──→ IN_PROGRESS (làm lại)
  * </pre>
  * <p>
  * 📌 TODO:       Vừa tạo, chưa ai nhận. Chỉ MANGAKA xoá được.
- * 📌 IN_PROGRESS: ASSISTANT đang làm. Không xoá được.
+ * 📌 IN_PROGRESS: ASSISTANT đã nhận, đang làm.
+ * 📌 SUBMITTED:  ASSISTANT đã nộp, đang chờ MANGAKA duyệt.
+ * 📌 REVISE:     MANGAKA yêu cầu sửa lại.
  * 📌 DONE:       MANGAKA đã duyệt. Hoàn thành.
- * 📌 REJECTED:   MANGAKA từ chối, yêu cầu sửa. ASSISTANT có thể làm lại.
  * <p>
  * Chi tiết chuyển trạng thái:
  * <pre>
  *  TODO       → IN_PROGRESS : ASSISTANT nhận việc
- *  IN_PROGRESS → REJECTED   : MANGAKA từ chối (yêu cầu sửa)
- *  REJECTED   → IN_PROGRESS : ASSISTANT làm lại
- *  (IN_PROGRESS → DONE qua cơ chế submission + review riêng)
+ *  IN_PROGRESS → SUBMITTED  : ASSISTANT nộp bài
+ *  SUBMITTED  → DONE        : MANGAKA duyệt (approve)
+ *  SUBMITTED  → REVISE      : MANGAKA yêu cầu sửa
+ *  REVISE     → IN_PROGRESS : ASSISTANT làm lại
  * </pre>
  */
 public enum TaskStatus {
     TODO,
     IN_PROGRESS,
-    DONE,
-    REJECTED
+    SUBMITTED,
+    REVISE,
+    DONE
 }

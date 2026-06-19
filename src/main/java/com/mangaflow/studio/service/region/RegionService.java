@@ -121,6 +121,22 @@ public class RegionService {
                 .toList();                   // Gom lại thành List<RegionResponse>
     }
 
+    /**
+     * Lấy danh sách region IDs có task DONE trong page.
+     * Frontend dùng để ẩn regions đã hoàn thành khi load page.
+     *
+     * @param pageId ID của page
+     * @return List<Long> danh sách region IDs cần ẩn
+     */
+    @Transactional(readOnly = true)
+    public List<Long> getDoneRegionIds(Long pageId) {
+        return regionRepository.findByPageIdOrderBySortOrderAsc(pageId)
+                .stream()
+                .filter(r -> r.getTask() != null && r.getTask().getStatus() == TaskStatus.DONE)
+                .map(Region::getId)
+                .toList();
+    }
+
     // ════════════════════════════════════════════════════════════════
     // 2. CREATE REGION — Tạo region mới
     // ════════════════════════════════════════════════════════════════
@@ -268,13 +284,10 @@ public class RegionService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Region not found: " + id));
 
-        List<Task> tasks = taskRepository.findByRegionIdOrderByAssignedAtDesc(id);
-        boolean hasIncompleteTask = tasks.stream()
-                .anyMatch(t -> t.getStatus() != TaskStatus.DONE);
-
-        if (hasIncompleteTask) {
+        // Kiểm tra region đã được giao trong task chưa
+        if (region.getTask() != null && region.getTask().getStatus() != TaskStatus.DONE) {
             throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Cannot delete region with incomplete tasks");
+                    "Cannot delete region with incomplete task");
         }
 
         regionRepository.delete(region);

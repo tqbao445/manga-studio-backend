@@ -7,7 +7,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * ── Task Entity ──
@@ -53,20 +55,20 @@ public class Task {
     private Long id;
 
     /**
-     * region: Region mà task này thuộc về.
-     * Mỗi task gắn với 1 vùng vẽ cụ thể trên page.
+     * regions: Các region được giao trong task này.
+     * 1 task có thể chứa nhiều regions (1:N).
+     * Mỗi region chỉ thuộc về 1 task duy nhất.
      * <p>
-     * 📌 @ManyToOne(fetch = FetchType.LAZY):
-     *    LAZY = chỉ load Region khi thực sự cần đến
-     *    (tránh N+1 query và tốn bộ nhớ)
+     * 📌 @OneToMany(mappedBy = "task"):
+     *    mappedBy = "task" → Region entity giữ khoá ngoại (task_id).
+     *    LAZY = chỉ load regions khi cần.
      * <p>
-     * 📌 @JoinColumn(name = "region_id", nullable = false):
-     *    Khoá ngoại region_id → region.id
-     *    NOT NULL — mỗi task phải thuộc về 1 region
+     * ❌ KHÔNG dùng CascadeType.ALL hay orphanRemoval — Region là entity độc lập,
+     *    không bị ràng buộc vòng đời bởi Task. Xoá Task không được xoá Region.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "region_id", nullable = false)
-    private Region region;
+    @OneToMany(mappedBy = "task", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @Builder.Default
+    private Set<Region> regions = new LinkedHashSet<>();
 
     /**
      * title: Tiêu đề công việc.
@@ -93,7 +95,7 @@ public class Task {
      * TEXT type → không giới hạn 255 ký tự.
      * NULLABLE — không bắt buộc.
      */
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String description;
 
     /**
@@ -101,7 +103,7 @@ public class Task {
      * TEXT type → không giới hạn 255 ký tự.
      * NULLABLE — không bắt buộc.
      */
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String notes;
 
     /**
@@ -206,6 +208,7 @@ public class Task {
      */
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @EqualsAndHashCode.Exclude
     private List<TaskSubmission> submissions = new ArrayList<>();
 
     /**
@@ -220,6 +223,7 @@ public class Task {
      */
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @EqualsAndHashCode.Exclude
     private List<TaskAttachment> attachments = new ArrayList<>();
 
     /**

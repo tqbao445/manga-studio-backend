@@ -1,5 +1,6 @@
 package com.mangaflow.studio.model.region;
 
+import com.mangaflow.studio.model.task.Task;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -152,6 +153,16 @@ public class Region {
      */
     @Column(length = 7)
     private String color;
+
+    /**
+     * task: Task mà region này được giao.
+     * Nhiều regions có thể thuộc cùng 1 task (N:1).
+     * NULLABLE — region có thể chưa được giao task nào.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "task_id")
+    @EqualsAndHashCode.Exclude
+    private Task task;
 
     /**
      * sortOrder: Thứ tự render của region (0 = dưới cùng).

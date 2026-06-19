@@ -4,11 +4,13 @@ import com.mangaflow.studio.model.region.RegionType;
 import com.mangaflow.studio.model.task.Priority;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * ── TaskRequest ──
@@ -44,6 +46,15 @@ public class TaskRequest {
     @Size(max = 255, message = "Title must not exceed 255 characters")
     @Schema(description = "Tiêu đề công việc", example = "Vẽ nhân vật chính panel 3", requiredMode = Schema.RequiredMode.REQUIRED)
     private String title;
+
+    /**
+     * regionType: Loại vùng override.
+     * Không bắt buộc — nếu không gửi, regionType lấy từ region gốc.
+     * <p>
+     * Giá trị hợp lệ: BACKGROUND, CHARACTER, TEXT, EFFECT, TONE, OTHER
+     */
+    @Schema(description = "Danh sách region IDs được giao trong task này", example = "[1, 2, 3]", requiredMode = Schema.RequiredMode.REQUIRED)
+    private List<Long> regionIds;
 
     /**
      * regionType: Loại vùng override.

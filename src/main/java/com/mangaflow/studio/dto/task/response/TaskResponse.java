@@ -36,8 +36,8 @@ public class TaskResponse {
 
     private Long id;
 
-    @Schema(description = "ID của region", example = "10")
-    private Long regionId;
+    @Schema(description = "Danh sách regions được giao trong task")
+    private List<RegionBasicDTO> regions;
 
     @Schema(description = "Loại vùng (override)", example = "CHARACTER")
     private RegionType regionType;
@@ -56,21 +56,6 @@ public class TaskResponse {
 
     @Schema(description = "URL ảnh của page (copy từ region)", example = "https://...page3.jpg")
     private String pageImageUrl;
-
-    @Schema(description = "Toạ độ X của region trên page", example = "120")
-    private Integer regionX;
-
-    @Schema(description = "Toạ độ Y của region trên page", example = "340")
-    private Integer regionY;
-
-    @Schema(description = "Chiều rộng region", example = "200")
-    private Integer regionWidth;
-
-    @Schema(description = "Chiều cao region", example = "150")
-    private Integer regionHeight;
-
-    @Schema(description = "Nhãn region", example = "PROTAG_FACE")
-    private String regionLabel;
 
     @Schema(description = "Trạng thái task: TODO, IN_PROGRESS, DONE, REJECTED", example = "TODO")
     private TaskStatus status;

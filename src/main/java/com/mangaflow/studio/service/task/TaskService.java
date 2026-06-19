@@ -42,7 +42,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * ── TaskService ──
@@ -168,28 +170,28 @@ public class TaskService {
             }
 
             // ── Filter theo region ──
+            // JOIN qua task.regions (1 task có nhiều regions)
+            jakarta.persistence.criteria.Join<Object, Object> regionJoin = null;
+
             if (regionId != null) {
-                predicates.add(cb.equal(root.get("region").get("id"), regionId));
+                regionJoin = root.join("regions");
+                predicates.add(cb.equal(regionJoin.get("id"), regionId));
             }
 
             // ── Filter theo seriesId ──
-            // Cần join: Task → Region (region_id) → Page (page_id) → Chapter → Series
-            // Vì Region chỉ có pageId (Long), không có @ManyToOne với Page
-            // → Không thể root.get("region").get("page") trong JPA criteria
-            // → Thay vào đó, query regionIds từ PageRepository trước
-            // Logic này được xử lý bên ngoài Specification (xem code dưới)
             if (seriesId != null) {
-                // Tìm tất cả regionIds có page thuộc series này
-                // (Xử lý riêng bên ngoài vì không có quan hệ JPA)
                 List<Long> regionIds = findRegionIdsBySeriesId(seriesId);
                 if (regionIds.isEmpty()) {
-                    // Không có region nào → trả về predicate luôn sai
-                    // (không có task nào khớp)
                     predicates.add(cb.disjunction());
                 } else {
-                    predicates.add(root.get("region").get("id").in(regionIds));
+                    if (regionJoin == null) {
+                        regionJoin = root.join("regions");
+                    }
+                    predicates.add(regionJoin.get("id").in(regionIds));
                 }
             }
+
+            query.distinct(true);
 
             // ── Role-based auto filter ──
             // ASSISTANT: chỉ thấy task của mình (assignedTo = currentUserId)
@@ -285,8 +287,8 @@ public class TaskService {
                     "Region not found: " + regionId);
         }
 
-        // Lấy tasks của region
-        List<Task> tasks = taskRepository.findByRegionIdOrderByAssignedAtDesc(regionId);
+        // Lấy tasks của region (JOIN qua task.regions)
+        List<Task> tasks = taskRepository.findByRegionId(regionId);
 
         String role = user.getRole();
 
@@ -338,12 +340,40 @@ public class TaskService {
      * @throws AppException 400 — nếu user không phải ASSISTANT hoặc dueDate ở quá khứ
      */
     public TaskResponse createTask(Long regionId, TaskRequest request, CustomUserDetails currentUser) {
-        // ── Bước 1: Kiểm tra region tồn tại ──
         Region region = regionRepository.findById(regionId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Region not found: " + regionId));
 
-        // ── Bước 2: Kiểm tra assistant tồn tại và có role ASSISTANT ──
+        return createBatchTask(List.of(regionId), request, currentUser);
+    }
+
+    /**
+     * POST /api/tasks/batch
+     * <p>
+     * Tạo 1 task duy nhất gán cho nhiều regions.
+     * Mỗi region chỉ được giao trong 1 task duy nhất.
+     */
+    public TaskResponse createBatchTask(List<Long> regionIds, TaskRequest request, CustomUserDetails currentUser) {
+        // ── Bước 1: Kiểm tra regions tồn tại ──
+        List<Region> regions = regionRepository.findAllById(regionIds);
+        if (regions.size() != regionIds.size()) {
+            List<Long> foundIds = regions.stream().map(Region::getId).toList();
+            List<Long> missing = regionIds.stream()
+                    .filter(id -> !foundIds.contains(id))
+                    .toList();
+            throw new AppException(HttpStatus.NOT_FOUND,
+                    "Regions not found: " + missing);
+        }
+
+        // ── Bước 2: Kiểm tra regions chưa có task nào ──
+        for (Region region : regions) {
+            if (region.getTask() != null) {
+                throw new AppException(HttpStatus.BAD_REQUEST,
+                        "Region " + region.getId() + " already assigned to task " + region.getTask().getId());
+            }
+        }
+
+        // ── Bước 3: Kiểm tra assistant tồn tại và có role ASSISTANT ──
         User assistant = userRepository.findById(request.getAssistantId())
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "User not found: " + request.getAssistantId()));
@@ -353,13 +383,12 @@ public class TaskService {
                     "User " + assistant.getUsername() + " is not an ASSISTANT");
         }
 
-        // ── Bước 3: Kiểm tra assistant có trong series không ──
-        // Chỉ cho phép gán task cho assistant đã ACCEPTED trong series này.
-        // Chain: Region → pageId → Page → chapterId → Chapter → seriesId
+        // ── Bước 4: Kiểm tra assistant có trong series không ──
         Long seriesId = null;
-        if (region.getPageId() != null) {
+        Region firstRegion = regions.get(0);
+        if (firstRegion.getPageId() != null) {
             com.mangaflow.studio.model.page.Page pageEntity = pageRepository
-                    .findById(region.getPageId()).orElse(null);
+                    .findById(firstRegion.getPageId()).orElse(null);
             if (pageEntity != null && pageEntity.getChapterId() != null) {
                 Chapter chapter = chapterRepository
                         .findById(pageEntity.getChapterId()).orElse(null);
@@ -379,63 +408,70 @@ public class TaskService {
             }
         }
 
-        // ── Bước 4: Kiểm tra dueDate ở tương lai (nếu có) ──
+        // ── Bước 5: Kiểm tra dueDate ở tương lai (nếu có) ──
         if (request.getDueDate() != null && request.getDueDate().isBefore(LocalDateTime.now())) {
             throw new AppException(HttpStatus.BAD_REQUEST,
                     "Due date must be in the future");
         }
 
-        // ── Bước 5: Lấy pageImageUrl từ region → page ──
-        // Region có pageId (Long), cần tìm Page để lấy webImageUrl
+        // ── Bước 6: Lấy pageImageUrl từ region → page ──
         String pageImageUrl = null;
-        if (region.getPageId() != null) {
-            com.mangaflow.studio.model.page.Page pageEntity = pageRepository.findById(region.getPageId()).orElse(null);
+        if (firstRegion.getPageId() != null) {
+            com.mangaflow.studio.model.page.Page pageEntity = pageRepository
+                    .findById(firstRegion.getPageId()).orElse(null);
             if (pageEntity != null) {
                 pageImageUrl = pageEntity.getWebImageUrl();
             }
         }
 
-        // ── Bước 6: Tìm User entity cho currentUser ──
+        // ── Bước 7: Tìm User entity cho currentUser ──
         User assignedBy = userRepository.findById(currentUser.getUserId())
                 .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        // ── Bước 7: Tạo Task entity ──
+        // ── Bước 8: Tạo Task entity ──
         Task task = Task.builder()
-                .region(region)
+                .regions(new LinkedHashSet<>(regions))
                 .title(request.getTitle())
                 .regionType(request.getRegionType())
                 .description(request.getDescription())
                 .notes(request.getNotes())
                 .referenceImageUrl(request.getReferenceImageUrl())
-                .pageImageUrl(pageImageUrl)                          // Copy từ page
-                .status(TaskStatus.TODO)                              // Mới tạo → TODO
+                .pageImageUrl(pageImageUrl)
+                .status(TaskStatus.TODO)
                 .priority(request.getPriority() != null
                         ? request.getPriority()
-                        : Priority.MEDIUM)                           // Default MEDIUM
+                        : Priority.MEDIUM)
                 .assistant(assistant)
                 .assignedBy(assignedBy)
                 .assignedAt(LocalDateTime.now())
                 .dueDate(request.getDueDate())
                 .build();
 
-        // ── Bước 8: Lưu vào database ──
+        // ── Bước 9: Set task cho từng region ──
+        for (Region region : regions) {
+            region.setTask(task);
+        }
+
+        // ── Bước 10: Lưu vào database ──
         Task savedTask = taskRepository.save(task);
 
-        // ── Bước 9: Gửi notification cho ASSISTANT ──
-        // Thông báo: "Có task mới được giao cho bạn"
-        // Frontend click → navigate tới /tasks (vì referenceType = "TASK")
+        // ── Bước 11: Gửi notification cho ASSISTANT ──
+        String regionNames = regions.stream()
+                .map(r -> r.getLabel() != null ? r.getLabel() : "Region #" + r.getId())
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("");
+
         notificationService.createAndSend(
-                assistant.getId(),                     // userId: người nhận (ASSISTANT)
-                "TASK_ASSIGNED",                       // type: phân loại
-                "New task: " + task.getTitle(),        // title: tiêu đề ngắn
+                assistant.getId(),
+                "TASK_ASSIGNED",
+                "New task: " + task.getTitle(),
                 "You have been assigned a new task: " + task.getTitle()
-                        + " in " + task.getRegionType().name()
-                        + " region.",                  // message: nội dung chi tiết
-                "TASK",                                // referenceType: navigate đến /tasks
-                savedTask.getId()                      // referenceId: để lọc task
+                        + " (" + regionNames + ")",
+                "TASK",
+                savedTask.getId()
         );
 
-        // ── Bước 10: Map sang DTO và trả về ──
+        // ── Bước 12: Map sang DTO và trả về ──
         return taskMapper.toResponse(savedTask);
     }
 
@@ -446,7 +482,7 @@ public class TaskService {
     /**
      * PUT /api/tasks/{id}
      * <p>
-     * Cập nhật thông tin task. Chỉ được sửa khi task đang TODO hoặc REJECTED.
+     * Cập nhật thông tin task. Chỉ được sửa khi task đang TODO hoặc REVISE.
      * <p>
      * 📌 Nguyên tắc:
      * - Nếu gửi assistantId khác → reset assignedAt = now
@@ -460,7 +496,7 @@ public class TaskService {
      * @param currentUser User đang đăng nhập
      * @return TaskResponse — task đã cập nhật
      * @throws AppException 404 — nếu không tìm thấy task
-     * @throws AppException 400 — nếu task không ở TODO/REJECTED
+     * @throws AppException 400 — nếu task không ở TODO/REVISE
      */
     public TaskResponse updateTask(Long id, TaskUpdateRequest request, CustomUserDetails currentUser) {
         // ── Bước 1: Tìm task ──
@@ -469,11 +505,11 @@ public class TaskService {
                         "Task not found: " + id));
 
         // ── Bước 2: Kiểm tra trạng thái ──
-        // Chỉ cho phép sửa khi task đang TODO hoặc REJECTED
+        // Chỉ cho phép sửa khi task đang TODO hoặc REVISE
         // Nếu đã IN_PROGRESS hoặc DONE → không được sửa
-        if (task.getStatus() != TaskStatus.TODO && task.getStatus() != TaskStatus.REJECTED) {
+        if (task.getStatus() != TaskStatus.TODO && task.getStatus() != TaskStatus.REVISE) {
             throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Can only update task when status is TODO or REJECTED, current: " + task.getStatus());
+                    "Can only update task when status is TODO or REVISE, current: " + task.getStatus());
         }
 
         // ── Bước 3: Cập nhật từng field (partial update) ──
@@ -548,11 +584,11 @@ public class TaskService {
      * Chuyển trạng thái task theo state machine:
      * <pre>
      *  TODO → IN_PROGRESS : ASSISTANT nhận việc
-     *  IN_PROGRESS → REJECTED : MANGAKA từ chối
-     *  REJECTED → IN_PROGRESS : ASSISTANT làm lại
+     *  REVISE → IN_PROGRESS : ASSISTANT làm lại
      * </pre>
      * <p>
-     * (IN_PROGRESS → DONE không hỗ trợ ở đây — dùng submission + review)
+     * (Các chuyển khác — IN_PROGRESS → SUBMITTED qua nộp bài,
+     *  SUBMITTED → DONE/REVISE qua duyệt bài)
      *
      * @param id          ID của task
      * @param newStatus   Trạng thái mới
@@ -571,11 +607,9 @@ public class TaskService {
         TaskStatus currentStatus = task.getStatus();
 
         // ── Bước 2: Kiểm tra state transition ──
-        // Dùng switch expression — rõ ràng, compiler kiểm tra đủ case
-
         boolean validTransition = true;
 
-        // TODO → IN_PROGRESS: chỉ ASSISTANT được gán
+        // TODO → IN_PROGRESS: ASSISTANT nhận việc
         if (currentStatus == TaskStatus.TODO && newStatus == TaskStatus.IN_PROGRESS) {
             if (task.getAssistant() == null
                     || !task.getAssistant().getId().equals(currentUser.getUserId())) {
@@ -583,15 +617,8 @@ public class TaskService {
                         "Only the assigned assistant can start this task");
             }
         }
-        // IN_PROGRESS → REJECTED: chỉ MANGAKA (người giao)
-        else if (currentStatus == TaskStatus.IN_PROGRESS && newStatus == TaskStatus.REJECTED) {
-            if (!task.getAssignedBy().getId().equals(currentUser.getUserId())) {
-                throw new AppException(HttpStatus.FORBIDDEN,
-                        "Only the task creator can reject this task");
-            }
-        }
-        // REJECTED → IN_PROGRESS: chỉ ASSISTANT được gán
-        else if (currentStatus == TaskStatus.REJECTED && newStatus == TaskStatus.IN_PROGRESS) {
+        // REVISE → IN_PROGRESS: ASSISTANT làm lại
+        else if (currentStatus == TaskStatus.REVISE && newStatus == TaskStatus.IN_PROGRESS) {
             if (task.getAssistant() == null
                     || !task.getAssistant().getId().equals(currentUser.getUserId())) {
                 throw new AppException(HttpStatus.FORBIDDEN,
@@ -608,16 +635,26 @@ public class TaskService {
                     "Cannot change status from " + currentStatus + " to " + newStatus);
         }
 
-        // ── Bước 3: Xoá ảnh Cloudinary (nếu REJECTED) ──
-        // Khi task bị REJECTED, xoá tất cả ảnh submissions trên Cloudinary
-        // để tránh rác. Không xoá DB records — giữ lịch sử.
-        if (newStatus == TaskStatus.REJECTED) {
-            deleteTaskCloudinaryFiles(task);
-        }
-
-        // ── Bước 4: Cập nhật và lưu ──
+        // ── Bước 3: Cập nhật và lưu ──
         task.setStatus(newStatus);
         Task savedTask = taskRepository.save(task);
+
+        // ── Bước 4: Gửi notification cho MANGAKA ──
+        if (newStatus == TaskStatus.IN_PROGRESS && currentStatus != newStatus) {
+            String type = currentStatus == TaskStatus.TODO ? "TASK_ACCEPTED" : "TASK_RETRIED";
+            String title = currentStatus == TaskStatus.TODO
+                    ? currentUser.getDisplayName() + " accepted the task"
+                    : currentUser.getDisplayName() + " retried the task";
+            notificationService.createAndSend(
+                    task.getAssignedBy().getId(),
+                    type,
+                    title,
+                    currentUser.getDisplayName()
+                            + " updated \"" + task.getTitle() + "\" to IN_PROGRESS.",
+                    "TASK",
+                    task.getId()
+            );
+        }
 
         return taskMapper.toResponse(savedTask);
     }
@@ -706,7 +743,7 @@ public class TaskService {
      * <p>
      * 📌 Điều kiện:
      * - User phải là ASSISTANT được gán cho task này
-     * - Task phải đang IN_PROGRESS hoặc REJECTED
+     * - Task phải đang IN_PROGRESS
      * <p>
      * 📌 Version:
      * - Lần nộp đầu → version = 1
@@ -743,13 +780,10 @@ public class TaskService {
                     "You are not assigned to this task");
         }
 
-        // ── Bước 3: Kiểm tra / tự động chuyển trạng thái task ──
-        if (task.getStatus() == TaskStatus.TODO) {
-            task.setStatus(TaskStatus.IN_PROGRESS);
-        } else if (task.getStatus() != TaskStatus.IN_PROGRESS
-                && task.getStatus() != TaskStatus.REJECTED) {
+        // ── Bước 3: Kiểm tra trạng thái — chỉ nộp được khi IN_PROGRESS ──
+        if (task.getStatus() != TaskStatus.IN_PROGRESS) {
             throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Can only submit when task is IN_PROGRESS or REJECTED, current: "
+                    "Can only submit when task is IN_PROGRESS, current: "
                             + task.getStatus());
         }
 
@@ -785,7 +819,8 @@ public class TaskService {
                 .submittedAt(LocalDateTime.now())
                 .build();
 
-        // ── Bước 8: Thêm vào task và lưu ──
+        // ── Bước 8: Cập nhật task status → SUBMITTED và lưu ──
+        task.setStatus(TaskStatus.SUBMITTED);
         task.getSubmissions().add(submission);
         taskRepository.save(task);
 
@@ -828,10 +863,9 @@ public class TaskService {
                     "You are not assigned to this task");
         }
 
-        if (task.getStatus() != TaskStatus.IN_PROGRESS
-                && task.getStatus() != TaskStatus.REJECTED) {
+        if (task.getStatus() != TaskStatus.IN_PROGRESS) {
             throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Can only submit when task is IN_PROGRESS or REJECTED, current: "
+                    "Can only submit when task is IN_PROGRESS, current: "
                             + task.getStatus());
         }
 
@@ -852,6 +886,7 @@ public class TaskService {
                 .submittedAt(LocalDateTime.now())
                 .build();
 
+        task.setStatus(TaskStatus.SUBMITTED);
         task.getSubmissions().add(submission);
         taskRepository.save(task);
 
@@ -946,7 +981,7 @@ public class TaskService {
 
         // ── Bước 6: Cập nhật task status ──
         // APPROVED → task DONE + tạo Layer tự động
-        // REVISION_REQUIRED → task IN_PROGRESS (không tạo Layer)
+        // REVISION_REQUIRED → task REVISE (không tạo Layer)
         if (newStatus == TaskSubmissionStatus.APPROVED) {
             task.setStatus(TaskStatus.DONE);
             taskRepository.save(task);
@@ -956,33 +991,31 @@ public class TaskService {
             createLayerFromSubmission(submission, task);
 
             // ── Gửi notification cho ASSISTANT ──
-            // Thông báo: "Bài làm của bạn đã được duyệt"
             notificationService.createAndSend(
-                    task.getAssistant().getId(),            // userId: ASSISTANT
-                    "TASK_APPROVED",                        // type
-                    "Your work has been approved!",         // title
+                    task.getAssistant().getId(),
+                    "TASK_APPROVED",
+                    "Your work has been approved!",
                     currentUser.getDisplayName()
                             + " has approved your work on \""
-                            + task.getTitle() + "\".",     // message
-                    "TASK",                                 // referenceType
-                    task.getId()                            // referenceId
+                            + task.getTitle() + "\".",
+                    "TASK",
+                    task.getId()
             );
         } else {
-            task.setStatus(TaskStatus.REJECTED);
+            task.setStatus(TaskStatus.REVISE);
             taskRepository.save(task);
 
             // ── Gửi notification cho ASSISTANT ──
-            // Thông báo: "Bài làm cần sửa lại"
             notificationService.createAndSend(
-                    task.getAssistant().getId(),            // userId: ASSISTANT
-                    "TASK_REVISION_REQUIRED",               // type
-                    "Revision needed for " + task.getTitle(), // title
+                    task.getAssistant().getId(),
+                    "TASK_REVISION_REQUIRED",
+                    "Revision needed for " + task.getTitle(),
                     currentUser.getDisplayName()
                             + " has requested revisions on \""
                             + task.getTitle() + "\"."
-                            + (reviewNote != null ? " Note: " + reviewNote : ""), // message
-                    "TASK",                                 // referenceType
-                    task.getId()                            // referenceId
+                            + (reviewNote != null ? " Note: " + reviewNote : ""),
+                    "TASK",
+                    task.getId()
             );
         }
 
@@ -1011,22 +1044,19 @@ public class TaskService {
      * @param task       Task chứa submission
      */
     private void createLayerFromSubmission(TaskSubmission submission, Task task) {
-        // Kiểm tra region và pageId tồn tại
-        if (task.getRegion() == null || task.getRegion().getPageId() == null) {
-            // Region hoặc page đã bị xoá — không thể tạo Layer
-            return;
-        }
+        // Lấy region đầu tiên của task để lấy pageId
+        Set<Region> regions = task.getRegions();
+        if (regions == null || regions.isEmpty()) return;
 
-        Long pageId = task.getRegion().getPageId();
+        Region firstRegion = regions.iterator().next();
+        if (firstRegion.getPageId() == null) return;
+
+        Long pageId = firstRegion.getPageId();
         String fileUrl = submission.getResultImageUrl();
         String thumbnailUrl = generateThumbnailUrl(fileUrl);
         String label = task.getTitle();
         User assistant = task.getAssistant();
 
-        // Gọi LayerService để tạo layer
-        // LayerService tự động:
-        //   - Tính sortOrder = maxSortOrder(pageId) + 1 (trên cùng)
-        //   - Set createdAt = LocalDateTime.now()
         layerService.createLayerFromSubmission(pageId, fileUrl, thumbnailUrl, label, assistant);
     }
 
@@ -1056,7 +1086,6 @@ public class TaskService {
      * thuộc 1 task khỏi Cloudinary.
      * <p>
      * Dùng khi:
-     * - Task bị REJECTED (IN_PROGRESS → REJECTED)
      * - Task bị xoá (deleteTask)
      * <p>
      * 📌 Không throw exception nếu xoá 1 ảnh thất bại —

@@ -58,6 +58,7 @@ public class TaskSubmission {
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id", nullable = false)
+    @EqualsAndHashCode.Exclude
     private Task task;
 
     /**

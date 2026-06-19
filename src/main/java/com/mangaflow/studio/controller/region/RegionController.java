@@ -105,6 +105,24 @@ public class RegionController {
         return ResponseEntity.ok(regionService.getRegionsByPage(pageId));
     }
 
+    /**
+     * GET /api/v1/pages/{pageId}/regions/done-ids
+     * <p>
+     * Lấy danh sách region IDs có task DONE. Frontend dùng để ẩn
+     * các region đã hoàn thành khi load page.
+     *
+     * @param pageId ID của page
+     * @return List<Long> danh sách region IDs
+     */
+    @Operation(summary = "Lấy region IDs có task DONE trong page")
+    @GetMapping("/pages/{pageId}/regions/done-ids")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<Long>> getDoneRegionIds(
+            @Parameter(description = "ID của page", example = "1")
+            @PathVariable Long pageId) {
+        return ResponseEntity.ok(regionService.getDoneRegionIds(pageId));
+    }
+
     // ════════════════════════════════════════════════════════════════
     // 2. CREATE REGION — Tạo region mới
     // ════════════════════════════════════════════════════════════════
