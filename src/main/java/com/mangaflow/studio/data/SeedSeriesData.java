@@ -3,11 +3,14 @@ package com.mangaflow.studio.data;
 import com.mangaflow.studio.model.auth.User;
 import com.mangaflow.studio.model.chapter.Chapter;
 import com.mangaflow.studio.model.chapter.ChapterStatus;
+import com.mangaflow.studio.model.schedule.PublicationSchedule;
+import com.mangaflow.studio.model.schedule.ScheduleType;
 import com.mangaflow.studio.model.series.Genre;
 import com.mangaflow.studio.model.series.Series;
 import com.mangaflow.studio.model.series.SeriesStatus;
 import com.mangaflow.studio.model.series.TargetDemographic;
 import com.mangaflow.studio.repository.chapter.ChapterRepository;
+import com.mangaflow.studio.repository.schedule.PublicationScheduleRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
 import com.mangaflow.studio.repository.auth.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,7 @@ public class SeedSeriesData implements CommandLineRunner {
     private final UserRepository userRepository;
     private final SeriesRepository seriesRepository;
     private final ChapterRepository chapterRepository;
+    private final PublicationScheduleRepository publicationScheduleRepository;
 
     @Override
     public void run(String... args) {
@@ -123,6 +127,20 @@ public class SeedSeriesData implements CommandLineRunner {
         seriesRepository.saveAll(savedSeries);
         System.out.println("Seeded " + savedSeries.size() + " series with "
                 + savedSeries.stream().mapToInt(Series::getChapterCount).sum() + " chapters");
+
+        // ── Step 4: Create PublicationSchedule for each series ──
+        for (Series series : savedSeries) {
+            boolean isMonthly = "The Last Summoner".equals(series.getTitle());
+            PublicationSchedule schedule = PublicationSchedule.builder()
+                    .series(series)
+                    .scheduleType(isMonthly ? ScheduleType.MONTHLY : ScheduleType.WEEKLY)
+                    .dayOfWeek(isMonthly ? null : 3)
+                    .dayOfMonth(isMonthly ? 1 : null)
+                    .startDate(LocalDate.of(2026, 4, 1))
+                    .build();
+            publicationScheduleRepository.save(schedule);
+        }
+        System.out.println("Seeded " + savedSeries.size() + " publication schedules");
     }
 
     private List<Chapter> createWeeklyChapters(Series series, LocalDate firstDate, List<String> titles) {

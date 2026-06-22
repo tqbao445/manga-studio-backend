@@ -38,6 +38,8 @@ public class SeriesAssistantResponse {
      */
     private Long seriesId;
 
+    private String seriesTitle;
+
     /**
      * assistant: Thông tin cơ bản của assistant (id, displayName, avatarUrl).
      * Dùng UserDTO — không chứa password hay email nhạy cảm.

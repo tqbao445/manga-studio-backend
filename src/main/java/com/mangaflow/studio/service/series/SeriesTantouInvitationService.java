@@ -393,23 +393,15 @@ public class SeriesTantouInvitationService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Series not found or not owned by you"));
 
-        // ── Bước 2: Kiểm tra record tồn tại ──
-        var existingOpt = seriesTantouInvitationRepository.findBySeriesIdAndTantouId(
-                seriesId, tantouId);
-
-        if (existingOpt.isEmpty()) {
-            throw new AppException(HttpStatus.NOT_FOUND,
-                    "Tantou is not associated with this series");
-        }
-
-        // ── Bước 3: Nếu tantou đang là tantouEditor của series → clear ──
+        // ── Bước 2: Nếu tantou đang là tantouEditor → clear ──
         if (series.getTantouEditor() != null
                 && series.getTantouEditor().getId().equals(tantouId)) {
             series.setTantouEditor(null);
             seriesRepository.save(series);
         }
 
-        // ── Bước 4: Xoá record ──
-        seriesTantouInvitationRepository.deleteBySeriesIdAndTantouId(seriesId, tantouId);
+        // ── Bước 3: Xoá invitation record nếu tồn tại ──
+        seriesTantouInvitationRepository.findBySeriesIdAndTantouId(seriesId, tantouId)
+                .ifPresent(inv -> seriesTantouInvitationRepository.delete(inv));
     }
 }

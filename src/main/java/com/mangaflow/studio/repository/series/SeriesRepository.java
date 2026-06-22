@@ -61,4 +61,8 @@ public interface SeriesRepository extends JpaRepository<Series, Long>,
      * @return Danh sách series khớp
      */
     List<Series> findByStatusIn(List<SeriesStatus> statuses);
+
+    List<Series> findByMangakaId(Long mangakaId);
+
+    List<Series> findByTantouEditorId(Long tantouEditorId);
 }

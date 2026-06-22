@@ -86,7 +86,6 @@ public interface SeriesMapper {
      * tantouEditor       │ ignore = true      │ Chưa có editor khi tạo mới
      * chapterCount       │ ignore = true      │ Denormalized — module Chapter sau này quản lý
      * currentRank        │ ignore = true      │ Denormalized — module Ranking sau này quản lý
-     * currentTier        │ ignore = true      │ Denormalized — module Ranking sau này quản lý
      * createdAt          │ ignore = true      │ @PrePersist tự động set
      * updatedAt          │ ignore = true      │ @PrePersist tự động set
      * ═══════════════════════════════════════════════════════════
@@ -104,8 +103,6 @@ public interface SeriesMapper {
     @Mapping(target = "tantouEditor", ignore = true)
     @Mapping(target = "chapterCount", ignore = true)
     @Mapping(target = "currentRank", ignore = true)
-    @Mapping(target = "currentTier", ignore = true)
-    @Mapping(target = "consecutiveWarningMonths", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Series toEntity(SeriesRequest request, User mangaka);
@@ -140,8 +137,8 @@ public interface SeriesMapper {
      *    - status:          dùng submit/approve/reject/updateStatus riêng
      *    - mangaka:         không thể đổi chủ sở hữu
      *    - tantouEditor:    do Editorial Board gán khi approve
-     *    - chapterCount, currentRank, currentTier: denormalized
-     *    - createdAt, updatedAt: lifecycle callback tự động
+    *    - chapterCount, currentRank: denormalized
+    *    - createdAt, updatedAt: lifecycle callback tự động
       *
       * @param series  Entity hiện tại (sẽ bị mutate — @MappingTarget)
      * @param request DTO chứa các field muốn thay đổi (null → giữ nguyên)
@@ -153,8 +150,6 @@ public interface SeriesMapper {
     @Mapping(target = "tantouEditor", ignore = true)
     @Mapping(target = "chapterCount", ignore = true)
     @Mapping(target = "currentRank", ignore = true)
-    @Mapping(target = "currentTier", ignore = true)
-    @Mapping(target = "consecutiveWarningMonths", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntity(@MappingTarget Series series, SeriesRequest request);
