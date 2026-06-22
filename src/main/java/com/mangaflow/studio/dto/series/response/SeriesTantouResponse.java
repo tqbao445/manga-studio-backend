@@ -38,6 +38,8 @@ public class SeriesTantouResponse {
      */
     private Long seriesId;
 
+    private String seriesTitle;
+
     /**
      * tantou: Thông tin cơ bản của tantou (id, displayName, avatarUrl).
      * Dùng UserDTO — không chứa password hay email nhạy cảm.

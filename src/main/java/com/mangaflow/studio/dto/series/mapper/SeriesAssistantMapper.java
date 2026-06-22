@@ -47,6 +47,7 @@ public interface SeriesAssistantMapper {
      * @return SeriesAssistantResponse DTO — không chứa password hay lazy references
      */
     @Mapping(target = "seriesId", source = "series.id")
+    @Mapping(target = "seriesTitle", source = "series.title")
     @Mapping(target = "status",
              expression = "java(seriesAssistant.getStatus().name())")
     SeriesAssistantResponse toResponse(SeriesAssistant seriesAssistant);

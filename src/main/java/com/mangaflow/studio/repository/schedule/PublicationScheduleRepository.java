@@ -2,6 +2,7 @@ package com.mangaflow.studio.repository.schedule;
 
 import com.mangaflow.studio.model.schedule.PublicationSchedule;
 import com.mangaflow.studio.model.schedule.ScheduleStatus;
+import com.mangaflow.studio.model.schedule.ScheduleType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
@@ -62,4 +63,16 @@ public interface PublicationScheduleRepository
      * @return List<PublicationSchedule> danh sách schedules
      */
     List<PublicationSchedule> findByStatus(ScheduleStatus status);
+
+    /**
+     * Lấy tất cả ACTIVE schedules theo scheduleType.
+     * Dùng cho ranking export/import:
+     *   - WEEKLY → lấy series WEEKLY để export form tuần
+     *   - MONTHLY → lấy series MONTHLY để export form tháng
+     *
+     * @param scheduleType WEEKLY hoặc MONTHLY
+     * @return danh sách schedules ACTIVE theo loại
+     */
+    List<PublicationSchedule> findByScheduleTypeAndStatus(
+            ScheduleType scheduleType, ScheduleStatus status);
 }

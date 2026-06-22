@@ -47,6 +47,7 @@ public interface SeriesTantouMapper {
      * @return SeriesTantouResponse DTO — không chứa password hay lazy references
      */
     @Mapping(target = "seriesId", source = "series.id")
+    @Mapping(target = "seriesTitle", source = "series.title")
     @Mapping(target = "status",
              expression = "java(invitation.getStatus().name())")
     SeriesTantouResponse toResponse(SeriesTantouInvitation invitation);

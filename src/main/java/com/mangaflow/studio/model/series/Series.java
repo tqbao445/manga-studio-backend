@@ -191,27 +191,10 @@ public class Series {
     private Integer chapterCount;
 
     /**
-     * currentRank: Thứ hạng hiện tại trong bảng xếp hạng.
-     * Denormalized field từ module Ranking.
+     * currentRank: Thứ hạng hiện tại (từ metric gần nhất).
+     * Cập nhật mỗi khi import + tính ranking.
      */
     private Integer currentRank;
-
-    /**
-     * currentTier: Hạng (S/A/B/C/D) dựa trên ranking.
-     * Denormalized field từ module Ranking.
-     */
-    private String currentTier;
-
-    /**
-     * consecutiveWarningMonths: Số tháng liên tiếp ở tier D (bottom 10%).
-     * >= 3 → hệ thống tự động CANCELLED.
-     */
-    @Builder.Default
-    @Column(nullable = false)
-    private Integer consecutiveWarningMonths = 0;
-
-    // ── publishFrequency đã được thay thế bằng PublicationSchedule (ScheduleType WEEKLY/MONTHLY) ──
-    // Chief/EB chủ động quản lý schedule qua API schedule. RankingService KHÔNG còn set publishFrequency.
 
     /**
      * statusNote: Ghi chú kèm trạng thái hiện tại.
