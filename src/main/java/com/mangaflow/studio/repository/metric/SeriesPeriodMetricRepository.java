@@ -46,4 +46,25 @@ public interface SeriesPeriodMetricRepository
      */
     List<SeriesPeriodMetric> findBySeriesIdOrderByPeriodLabelDesc(
             Long seriesId);
+
+    /**
+     * 📌 Lấy 2 metric gần nhất của 1 series — dùng để tính trend.
+     *
+     * Spring Data JPA hỗ trợ method prefix "findTop2" (hoặc findFirst2)
+     * tự động giới hạn kết quả = 2, không cần dùng Pageable.
+     *
+     * Kết quả trả về: [kỳ hiện tại, kỳ trước đó] — do orderByPeriodLabelDesc
+     *                        ↑ index 0      ↑ index 1
+     *
+     * Với 2 record này, ở Service ta sẽ tính:
+     *   - history[0].rank = rank kỳ hiện tại
+     *   - history[1].rank = rank kỳ trước
+     *   - trend = compare(history[1].rank, history[0].rank)
+     *
+     * Nếu series chưa có metric nào → trả về List rỗng (size = 0).
+     * Nếu series chỉ có 1 metric → trả về List 1 phần tử (size = 1).
+     * → Cần check size >= 2 trước khi tính trend.
+     */
+    List<SeriesPeriodMetric> findTop2BySeriesIdOrderByPeriodLabelDesc(
+            Long seriesId);
 }

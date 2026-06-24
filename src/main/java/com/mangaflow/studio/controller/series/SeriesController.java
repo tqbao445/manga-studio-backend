@@ -172,7 +172,7 @@ public class SeriesController {
         @ApiResponse(responseCode = "400", description = "Transition không hợp lệ")
     })
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasRole('EDITORIAL_BOARD')")
+    @PreAuthorize("hasAnyRole('EDITORIAL_BOARD', 'CHIEF_EDITOR')")
     public ResponseEntity<SeriesResponse> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStatusRequest request,

@@ -28,4 +28,5 @@ public class RankingEntryResponse {
     private String trend;                  // "UP" / "DOWN" / "SAME" / "NEW"
     private String coverImageUrl;
     private String coverColor;
+    private String scheduleType;             // "WEEKLY" hoặc "MONTHLY"
 }

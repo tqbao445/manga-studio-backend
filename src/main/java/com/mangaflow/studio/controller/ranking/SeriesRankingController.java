@@ -1,5 +1,6 @@
 package com.mangaflow.studio.controller.ranking;
 
+import com.mangaflow.studio.dto.ranking.response.AtRiskSeriesResponse;
 import com.mangaflow.studio.dto.ranking.response.ImportResultResponse;
 import com.mangaflow.studio.dto.ranking.response.RankingEntryResponse;
 import com.mangaflow.studio.service.ranking.SeriesRankingService;
@@ -127,5 +128,18 @@ public class SeriesRankingController {
             @Parameter(description = "Month (yyyy-MM), VD: 2026-06")
             @RequestParam String month) {
         return ResponseEntity.ok(rankingService.getMonthlyRanking(month));
+    }
+
+    // ========================================================================
+    // 🚨 AT-RISK — DANH SÁCH SERIES BỊ CẢNH BÁO
+    // ========================================================================
+
+    @Operation(summary = "Get at-risk series",
+            description = "Trả về danh sách series đang AT_RISK kèm lịch sử ranking. "
+                    + "Chỉ EDITORIAL_BOARD và CHIEF_EDITOR mới xem được.")
+    @GetMapping("/at-risk")
+    @PreAuthorize("hasAnyRole('EDITORIAL_BOARD', 'CHIEF_EDITOR')")
+    public ResponseEntity<List<AtRiskSeriesResponse>> getAtRiskSeries() {
+        return ResponseEntity.ok(rankingService.getAtRiskSeries());
     }
 }

@@ -1,6 +1,7 @@
 package com.mangaflow.studio.service.ranking;
 
 import com.mangaflow.studio.common.exception.AppException;
+import com.mangaflow.studio.dto.ranking.response.AtRiskSeriesResponse;
 import com.mangaflow.studio.dto.ranking.response.ImportResultResponse;
 import com.mangaflow.studio.dto.ranking.response.RankingEntryResponse;
 import com.mangaflow.studio.model.chapter.Chapter;
@@ -15,6 +16,7 @@ import com.mangaflow.studio.repository.chapter.ChapterRepository;
 import com.mangaflow.studio.repository.metric.SeriesPeriodMetricRepository;
 import com.mangaflow.studio.repository.schedule.PublicationScheduleRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
+import com.mangaflow.studio.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -39,9 +41,8 @@ import static java.time.temporal.TemporalAdjusters.previousOrSame;
  * 1. Export Excel form (để EB điền điểm)
  * 2. Import Excel + tính score + gán rank
  * 3. Lấy kết quả ranking
- *
- * Không còn logic tier D, cancellation, auto-fill, notification
- * — hệ thống chỉ làm đúng nhiệm vụ ranking.
+ * 4. Auto AT_RISK: tự động phát hiện series tụt hạng 2 kỳ liên tiếp
+ *    và đánh dấu AT_RISK / phục hồi về ONGOING khi cải thiện
  */
 @Service
 @RequiredArgsConstructor
@@ -51,6 +52,7 @@ public class SeriesRankingService {
     private final SeriesRepository seriesRepository;
     private final ChapterRepository chapterRepository;
     private final PublicationScheduleRepository scheduleRepository;
+    private final NotificationService notificationService;
 
     // ========================================================================
     // 📤 EXPORT — TẠO FILE EXCEL CHO EB ĐIỀN ĐIỂM
@@ -281,6 +283,9 @@ public class SeriesRankingService {
 
                 // Tính rank: sort score DESC → gán rank
                 assignRanks(periodLabel, periodType);
+
+                // Tự động phát hiện series tụt hạng 2 kỳ liên tiếp → AT_RISK
+                autoFlagAtRisk(periodLabel, periodType);
             }
 
         } catch (AppException e) {
@@ -318,6 +323,108 @@ public class SeriesRankingService {
             series.setCurrentRank(m.getRank());
             seriesRepository.save(series);
         }
+    }
+
+    // ========================================================================
+    // 🚩 AUTO AT_RISK — TỰ ĐỘNG PHÁT HIỆN SERIES TỤT HẠNG
+    // ========================================================================
+
+    /**
+     * 📌 autoFlagAtRisk — tự động kiểm tra và cập nhật AT_RISK / ONGOING.
+     *
+     * Được gọi ngay sau assignRanks() trong processImport().
+     * Chỉ xử lý series có status ONGOING hoặc AT_RISK.
+     *
+     * Rule:
+     * ┌──────────┬──────────────────────────────────────────────────┐
+     * │ Status   │ Điều kiện → Hành động                            │
+     * ├──────────┼──────────────────────────────────────────────────┤
+     * │ ONGOING  │ trend DOWN 2 kỳ liên tiếp + rank > total*70%    │
+     * │          │ → AT_RISK, lưu statusNote, notify                │
+     * ├──────────┼──────────────────────────────────────────────────┤
+     * │ AT_RISK  │ trend UP 2 kỳ liên tiếp                         │
+     * │          │ → ONGOING, xoá statusNote, notify "đã phục hồi"  │
+     * └──────────┴──────────────────────────────────────────────────┘
+     *
+     * Nếu không đủ dữ liệu (chưa có metric kỳ trước) → bỏ qua series đó.
+     */
+    @Transactional
+    public void autoFlagAtRisk(String periodLabel, String periodType) {
+        // Lấy tất cả metric của kỳ hiện tại, đã được assignRanks() xử lý
+        List<SeriesPeriodMetric> currentMetrics = metricRepository
+                .findByPeriodLabelAndPeriodTypeOrderByScoreDesc(periodLabel, periodType);
+
+        int totalSeries = currentMetrics.size();
+        // rank > total * 0.7 → bottom 30%
+        int bottomThreshold = (int) Math.ceil(totalSeries * 0.7);
+
+        for (SeriesPeriodMetric metric : currentMetrics) {
+            Series series = metric.getSeries();
+            SeriesStatus currentStatus = series.getStatus();
+
+            // Chỉ xử lý ONGOING hoặc AT_RISK
+            if (currentStatus != SeriesStatus.ONGOING && currentStatus != SeriesStatus.AT_RISK) {
+                continue;
+            }
+
+            // Lấy 2 metric gần nhất (kỳ hiện tại + kỳ trước)
+            List<SeriesPeriodMetric> history = metricRepository
+                    .findTop2BySeriesIdOrderByPeriodLabelDesc(series.getId());
+
+            // Cần ít nhất 2 kỳ để tính trend
+            if (history.size() < 2) continue;
+
+            // history[0] = kỳ hiện tại (mới nhất), history[1] = kỳ trước
+            int currentRank = history.get(0).getRank() != null ? history.get(0).getRank() : 0;
+            int prevRank = history.get(1).getRank() != null ? history.get(1).getRank() : 0;
+
+            // Trend giữa kỳ trước → kỳ hiện tại
+            String trendThis = determineTrend(prevRank, currentRank);
+
+            // Trend giữa kỳ trước nữa → kỳ trước (cần lấy rank của kỳ thứ 3)
+            String trendPrev = determineTrend(
+                    getRankBefore(history.get(1), series.getId()),
+                    prevRank);
+
+            // ── ONGOING → check có bị AT_RISK không ──
+            if (currentStatus == SeriesStatus.ONGOING) {
+                if ("DOWN".equals(trendThis) && "DOWN".equals(trendPrev)
+                        && currentRank >= bottomThreshold) {
+                    series.setStatus(SeriesStatus.AT_RISK);
+                    series.setStatusNote(
+                            "Auto-flagged: rank dropped for 2 consecutive periods (rank "
+                                    + currentRank + "/" + totalSeries + ")");
+                    seriesRepository.save(series);
+                    notifyAtRisk(series, currentRank, totalSeries);
+                }
+            }
+            // ── AT_RISK → check có hồi phục không ──
+            else if (currentStatus == SeriesStatus.AT_RISK) {
+                if ("UP".equals(trendThis) && "UP".equals(trendPrev)) {
+                    series.setStatus(SeriesStatus.ONGOING);
+                    series.setStatusNote(null);
+                    seriesRepository.save(series);
+                    notifyRecovered(series, currentRank, totalSeries);
+                }
+            }
+        }
+    }
+
+    /**
+     * Lấy rank của kỳ trước kỳ được chỉ định.
+     * VD: history[1] là kỳ W25 → cần rank của W24.
+     *
+     * Nếu không tìm thấy (chưa có metric kỳ đó) → trả về 0.
+     */
+    private int getRankBefore(SeriesPeriodMetric metric, Long seriesId) {
+        String prevLabel = computePreviousPeriodLabel(
+                metric.getPeriodLabel(), metric.getPeriodType());
+        if (prevLabel == null) return 0;
+
+        return metricRepository
+                .findBySeriesIdAndPeriodLabelAndPeriodType(seriesId, prevLabel, metric.getPeriodType())
+                .map(m -> m.getRank() != null ? m.getRank() : 0)
+                .orElse(0);
     }
 
     // ========================================================================
@@ -375,8 +482,92 @@ public class SeriesRankingService {
                 .trend(trend)
                 .coverImageUrl(m.getSeries().getCoverImageUrl())
                 .coverColor(m.getSeries().getCoverColor())
+                .scheduleType(getScheduleType(m.getSeries()))
                 .build();
         }).collect(Collectors.toList());
+    }
+
+    // ========================================================================
+    // 🚨 GET AT-RISK — LẤY DANH SÁCH SERIES ĐANG BỊ CẢNH BÁO
+    // ========================================================================
+
+    /**
+     * Lấy danh sách series đang AT_RISK kèm lịch sử ranking.
+     * Dùng cho endpoint GET /api/ranking/at-risk.
+     */
+    public List<AtRiskSeriesResponse> getAtRiskSeries() {
+        List<Series> atRiskSeries = seriesRepository.findByStatusIn(
+                List.of(SeriesStatus.AT_RISK));
+
+        return atRiskSeries.stream().map(series -> {
+            // Lấy lịch sử ranking để gắn vào response
+            List<SeriesPeriodMetric> history = metricRepository
+                    .findBySeriesIdOrderByPeriodLabelDesc(series.getId());
+
+            int totalSeries = (int) seriesRepository.count();
+
+            // Build danh sách recentRanks từ history
+            List<AtRiskSeriesResponse.RankHistoryEntry> recentRanks = new ArrayList<>();
+            Integer prevRank = null;
+            for (SeriesPeriodMetric m : history) {
+                int r = m.getRank() != null ? m.getRank() : 0;
+                String trend = determineTrend(prevRank, r);
+                recentRanks.add(AtRiskSeriesResponse.RankHistoryEntry.builder()
+                        .periodLabel(m.getPeriodLabel())
+                        .rank(r)
+                        .trend(trend)
+                        .build());
+                prevRank = r;
+            }
+
+            return AtRiskSeriesResponse.builder()
+                    .seriesId(series.getId())
+                    .seriesTitle(series.getTitle())
+                    .coverColor(series.getCoverColor())
+                    .coverImageUrl(series.getCoverImageUrl())
+                    .currentRank(series.getCurrentRank() != null ? series.getCurrentRank() : 0)
+                    .totalSeries(totalSeries)
+                    .scheduleType(getScheduleType(series))
+                    .consecutiveDownPeriods(countConsecutiveDown(history))
+                    .recentRanks(recentRanks)
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * Lấy ScheduleType của series (WEEKLY / MONTHLY).
+     * Tìm PublicationSchedule ACTIVE gần nhất → lấy scheduleType.
+     * Nếu không có schedule → trả về "N/A".
+     */
+    private String getScheduleType(Series series) {
+        List<PublicationSchedule> schedules = scheduleRepository
+                .findBySeriesId(series.getId());
+        return schedules.stream()
+                .filter(s -> s.getStatus() == ScheduleStatus.ACTIVE)
+                .findFirst()
+                .map(s -> s.getScheduleType().name())
+                .orElse("N/A");
+    }
+
+    /**
+     * Đếm số kỳ liên tiếp có trend = DOWN (tụt hạng).
+     * Dừng khi gặp UP hoặc SAME.
+     *
+     * Dùng để hiển thị "số kỳ liên tiếp bị tụt" trên UI.
+     */
+    private int countConsecutiveDown(List<SeriesPeriodMetric> history) {
+        int count = 0;
+        Integer prevRank = null;
+        for (SeriesPeriodMetric m : history) {
+            int r = m.getRank() != null ? m.getRank() : 0;
+            if (prevRank != null && prevRank < r) {
+                count++;
+            } else if (prevRank != null && prevRank >= r) {
+                break;
+            }
+            prevRank = r;
+        }
+        return count;
     }
 
     private String computePreviousPeriodLabel(String periodLabel, String periodType) {
@@ -399,6 +590,75 @@ public class SeriesRankingService {
         if (prevRank > currentRank) return "UP";
         if (prevRank < currentRank) return "DOWN";
         return "SAME";
+    }
+
+    // ========================================================================
+    // 🔔 NOTIFICATION HELPERS
+    // ========================================================================
+
+    /**
+     * Gửi notification cho Mangaka + Tantou khi series bị AT_RISK.
+     * Type: "SERIES_AT_RISK" → FE hiển thị cảnh báo đỏ.
+     */
+    private void notifyAtRisk(Series series, int rank, int total) {
+        String message = String.format(
+                "Series '%s' is at risk of cancellation due to rank drop "
+                        + "for 2 consecutive periods (rank %d/%d)",
+                series.getTitle(), rank, total);
+
+        // Gửi cho Mangaka
+        notificationService.createAndSend(
+                series.getMangaka().getId(),
+                "SERIES_AT_RISK",
+                "Warning: " + series.getTitle(),
+                message,
+                "SERIES",
+                series.getId()
+        );
+
+        // Gửi cho Tantou Editor (nếu có)
+        if (series.getTantouEditor() != null) {
+            notificationService.createAndSend(
+                    series.getTantouEditor().getId(),
+                    "SERIES_AT_RISK",
+                    "Warning: " + series.getTitle(),
+                    message,
+                    "SERIES",
+                    series.getId()
+            );
+        }
+    }
+
+    /**
+     * Gửi notification cho Mangaka + Tantou khi series hồi phục về ONGOING.
+     * Type: "SERIES_RECOVERED" → FE hiển thị thông báo xanh.
+     */
+    private void notifyRecovered(Series series, int rank, int total) {
+        String message = String.format(
+                "Series '%s' has recovered, currently at rank %d/%d",
+                series.getTitle(), rank, total);
+
+        // Gửi cho Mangaka
+        notificationService.createAndSend(
+                series.getMangaka().getId(),
+                "SERIES_RECOVERED",
+                "Recovered: " + series.getTitle(),
+                message,
+                "SERIES",
+                series.getId()
+        );
+
+        // Gửi cho Tantou Editor (nếu có)
+        if (series.getTantouEditor() != null) {
+            notificationService.createAndSend(
+                    series.getTantouEditor().getId(),
+                    "SERIES_RECOVERED",
+                    "Recovered: " + series.getTitle(),
+                    message,
+                    "SERIES",
+                    series.getId()
+            );
+        }
     }
 
     // ========================================================================

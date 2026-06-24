@@ -11,7 +11,9 @@ import com.mangaflow.studio.model.series.Series;
 import com.mangaflow.studio.model.series.SeriesStatus;
 import com.mangaflow.studio.model.series.TargetDemographic;
 import com.mangaflow.studio.repository.auth.UserRepository;
+import com.mangaflow.studio.repository.schedule.PublicationScheduleRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
+import com.mangaflow.studio.model.schedule.ScheduleStatus;
 import com.mangaflow.studio.service.storage.CloudinaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -79,6 +81,11 @@ public class SeriesService {
     private final SeriesMapper seriesMapper;
 
     /**
+     * scheduleRepository: Dùng để tra cứu lịch phát hành ACTIVE của series.
+     */
+    private final PublicationScheduleRepository scheduleRepository;
+
+    /**
      * cloudinaryService: Service upload/xoá ảnh lên Cloudinary.
      * Dùng để upload ảnh bìa (cover) khi tạo/cập nhật series,
      * và xoá ảnh bìa khỏi Cloudinary khi xoá series.
@@ -115,9 +122,16 @@ public class SeriesService {
                                         TargetDemographic targetDemographic,
                                         String search, Pageable pageable,
                                         CustomUserDetails user) {
-        return seriesRepository.findAll(
+        Page<SeriesResponse> page = seriesRepository.findAll(
                 SeriesSpecification.buildFilter(status, genre, targetDemographic, search, user), pageable)
                 .map(seriesMapper::toResponse);
+
+        page.getContent().forEach(response ->
+            scheduleRepository.findBySeriesIdAndStatus(response.getId(), ScheduleStatus.ACTIVE)
+                .ifPresent(schedule -> response.setScheduleType(schedule.getScheduleType().name()))
+        );
+
+        return page;
     }
 
     // ════════════════════════════════════════════════════════════
