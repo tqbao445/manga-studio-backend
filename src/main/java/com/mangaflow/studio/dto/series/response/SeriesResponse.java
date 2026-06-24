@@ -27,6 +27,7 @@ public class SeriesResponse {
     private Integer chapterCount;
     private Integer currentRank;
     private String currentTier;
+    private String scheduleType;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
