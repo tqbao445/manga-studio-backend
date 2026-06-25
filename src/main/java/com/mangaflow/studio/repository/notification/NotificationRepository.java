@@ -109,4 +109,25 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.userId = :userId")
     int markAllAsReadByUserId(@Param("userId") Long userId);
+
+    // ════════════════════════════════════════════════════════════
+    // CÁC METHOD DÀNH CHO DASHBOARD ACTIVITY FEED
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Lấy 20 notification gần đây nhất (không phân biệt userId).
+     * Dùng cho Activity Feed trên Dashboard.
+     *
+     * @return 20 notification mới nhất
+     */
+    List<Notification> findTop20ByOrderByCreatedAtDesc();
+
+    /**
+     * Lấy 20 notification gần đây nhất của 1 user cụ thể.
+     * Dùng cho Activity Feed cá nhân hoá.
+     *
+     * @param userId ID của user
+     * @return 20 notification mới nhất của user đó
+     */
+    List<Notification> findTop20ByUserIdOrderByCreatedAtDesc(Long userId);
 }

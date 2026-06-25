@@ -20,4 +20,26 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     @EntityGraph(attributePaths = "submissions")
     @Query("SELECT t FROM Task t JOIN t.regions r WHERE r.id = :regionId ORDER BY t.assignedAt DESC")
     List<Task> findByRegionId(@Param("regionId") Long regionId);
+
+    // ════════════════════════════════════════════════════════════
+    // CÁC METHOD DÀNH CHO DASHBOARD
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Tìm tất cả task được giao cho 1 assistant.
+     * Dùng trong DashboardAssistantStats: đếm task theo trạng thái.
+     *
+     * @param assistantId ID của assistant
+     * @return danh sách task
+     */
+    List<Task> findByAssistantId(Long assistantId);
+
+    /**
+     * Tìm tất cả task do 1 người giao (assignedBy).
+     * Dùng trong DashboardMangakaStats: đếm task pending, submitted.
+     *
+     * @param assignedById ID của người giao việc
+     * @return danh sách task
+     */
+    List<Task> findByAssignedById(Long assignedById);
 }
