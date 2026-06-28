@@ -83,4 +83,30 @@ public class TaskResponse {
 
     @Schema(description = "File đính kèm (chỉ có ở GET detail)")
     private List<TaskAttachmentResponse> attachments;
+
+    // ════════════════════════════════════════════════════════════════
+    // FIELD MỚI: revisionNote
+    // ════════════════════════════════════════════════════════════════
+    //
+    // Mục đích:
+    //   Hiển thị ghi chú sửa bài (reviewNote) từ submission gần nhất
+    //   khi MANGAKA yêu cầu ASSISTANT sửa lại (REVISION_REQUIRED).
+    //
+    // Cách hoạt động:
+    //   Khi MANGAKA duyệt bài và chọn REVISION_REQUIRED, họ viết note
+    //   (VD: "Fix light direction"). Note này được lưu vào
+    //   TaskSubmission.reviewNote. Khi ASSISTANT fetch danh sách task
+    //   REVISE, backend tìm submission mới nhất (version cao nhất) có
+    //   status = REVISION_REQUIRED và copy reviewNote vào field này.
+    //
+    // Business value:
+    //   ASSISTANT thấy ngay lý do cần sửa trên list task mà không
+    //   phải mở chi tiết từng task.
+    //
+    // 📌 Chỉ có giá trị khi task.status = REVISE.
+    //    Với các status khác (TODO, IN_PROGRESS, SUBMITTED, DONE)
+    //    field này = null.
+    @Schema(description = "Ghi chú sửa bài từ MANGAKA (có khi task là REVISE)",
+            example = "Tăng độ tương phản phần nhân vật chính")
+    private String revisionNote;
 }

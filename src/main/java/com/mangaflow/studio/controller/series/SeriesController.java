@@ -10,6 +10,8 @@ import com.mangaflow.studio.model.series.Genre;
 import com.mangaflow.studio.model.series.SeriesSortBy;
 import com.mangaflow.studio.model.series.SeriesStatus;
 import com.mangaflow.studio.model.series.TargetDemographic;
+import com.mangaflow.studio.dto.feedback.response.ReaderFeedbackResponse;
+import com.mangaflow.studio.service.feedback.ReaderFeedbackService;
 import com.mangaflow.studio.service.series.SeriesService;
 import com.mangaflow.studio.service.series.SeriesStoryProfileService;
 import com.mangaflow.studio.service.series.SeriesWorkflowService;
@@ -44,6 +46,7 @@ public class SeriesController {
     private final SeriesService seriesService;
     private final SeriesStoryProfileService seriesStoryProfileService;
     private final SeriesWorkflowService seriesWorkflowService;
+    private final ReaderFeedbackService readerFeedbackService;
 
     @Operation(summary = "Danh sách series",
                description = "Lấy danh sách series với filter theo status, genre, search và phân trang.")
@@ -214,5 +217,43 @@ public class SeriesController {
             @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(
                 seriesStoryProfileService.updateStoryProfile(id, request, files, user));
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  READER FEEDBACK — Phản hồi độc giả cho Survival Radar
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * ── GET /api/v1/series/{id}/reader-feedback ──
+     *
+     * Mục đích:
+     *   Cung cấp dữ liệu cho box "Reader Feedback" trong Survival Radar
+     *   của Mangaka Dashboard.
+     *
+     * Cách hoạt động:
+     *   1. FE gọi với seriesId
+     *   2. Backend kiểm tra series tồn tại
+     *   3. Query ReaderFeedback WHERE seriesId = :id
+     *   4. Phân loại POSITIVE → highlights, ISSUE → topIssues
+     *   5. Trả về response (highlights, topIssues, summary, updatedAt)
+     *
+     * Business value:
+     *   Mangaka biết độc giả đang nghĩ gì về series của họ mà không
+     *   cần vào từng chapter. Editorial Board có thể nhập feedback
+     *   từ các nguồn (survey, comment, review).
+     */
+    @Operation(summary = "Phản hồi độc giả (Reader Feedback)",
+               description = "Lấy phản hồi nổi bật từ độc giả cho box Survival Radar. "
+                           + "Trả về: highlights (lời khen), topIssues (góp ý), "
+                           + "summary (tóm tắt), updatedAt.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Phản hồi độc giả"),
+        @ApiResponse(responseCode = "404", description = "Series không tồn tại")
+    })
+    @GetMapping("/{id}/reader-feedback")
+    public ResponseEntity<ReaderFeedbackResponse> getReaderFeedback(
+            @Parameter(description = "ID của series", example = "5")
+            @PathVariable Long id) {
+        return ResponseEntity.ok(readerFeedbackService.getFeedback(id));
     }
 }

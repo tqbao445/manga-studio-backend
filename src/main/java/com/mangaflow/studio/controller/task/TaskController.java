@@ -114,6 +114,9 @@ public class TaskController {
             @Parameter(description = "Lọc theo series ID (join region → page → chapter → series)")
             @RequestParam(required = false) Long seriesId,
 
+            @Parameter(description = "Chỉ lấy task có submission đang chờ (hasSubmission=true)")
+            @RequestParam(required = false) Boolean hasSubmission,
+
             @Parameter(description = "Số trang (bắt đầu từ 0)")
             @RequestParam(defaultValue = "0") int page,
 
@@ -132,7 +135,7 @@ public class TaskController {
 
         Page<TaskResponse> result = taskService.getTasks(
                 status, assignedTo, assignedBy, priority, regionId, seriesId,
-                page, size, sortBy, sortDir, user);
+                hasSubmission, page, size, sortBy, sortDir, user);
 
         return ResponseEntity.ok(result);
     }

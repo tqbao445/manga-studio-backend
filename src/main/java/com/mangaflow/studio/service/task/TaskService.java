@@ -134,6 +134,7 @@ public class TaskService {
     public Page<TaskResponse> getTasks(
             TaskStatus status, Long assignedTo, Long assignedBy,
             Priority priority, Long regionId, Long seriesId,
+            Boolean hasSubmission,
             int page, int size, String sortBy, String sortDir,
             CustomUserDetails user) {
 
@@ -189,6 +190,31 @@ public class TaskService {
                     }
                     predicates.add(regionJoin.get("id").in(regionIds));
                 }
+            }
+
+            // ═══════════════════════════════════════════════════════
+            // hasSubmission filter — Lọc task có submission SUBMITTED
+            // ═══════════════════════════════════════════════════════
+            //
+            // Mục đích:
+            //   FE gửi ?hasSubmission=true để lấy các task đã có bài nộp
+            //   đang chờ MANGAKA duyệt. Khác với status=SUBMITTED ở chỗ:
+            //     - status=SUBMITTED: task đã chuyển hẳn sang SUBMITTED
+            //     - hasSubmission=true: task có ít nhất 1 submission
+            //       SUBMITTED (kể cả khi task đang IN_PROGRESS)
+            //
+            // Cách hoạt động:
+            //   hasSubmission=true  → JOIN submissions WHERE status='SUBMITTED'
+            //   hasSubmission=false/null → không filter
+            //
+            // 📌 Chỉ hỗ trợ hasSubmission=true (case chính).
+            //    hasSubmission=false không cần thiết cho use case hiện tại.
+            if (Boolean.TRUE.equals(hasSubmission)) {
+                jakarta.persistence.criteria.Join<Object, Object> subJoin =
+                        root.join("submissions");
+                predicates.add(cb.equal(
+                        subJoin.get("status"),
+                        TaskSubmissionStatus.SUBMITTED));
             }
 
             query.distinct(true);
