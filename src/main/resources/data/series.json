@@ -1,0 +1,362 @@
+[
+  {
+    "title": "Shadow Monarch",
+    "titleJp": "シャドウ・モナーク",
+    "synopsis": "In a world where hunters fight monsters in dungeons, the weakest hunter Sung Jin-Woo gains a mysterious power that allows him to level up indefinitely, becoming the one and only Shadow Monarch.",
+    "genres": ["FANTASY"],
+    "targetDemographics": ["SHONEN"],
+    "coverColor": "#6B21A8",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811376/shadow_monarch_u7ce8a.png",
+    "mangakaEmail": "ichikawa@manga.com",
+    "tantouEditorEmail": "sato@editor.com",
+    "worldLoreContent": "<p>Dungeons began appearing across the world two decades ago, spawning monsters that threatened humanity. In response, a small percentage of humans awakened as Hunters with supernatural abilities. The Hunter Association was formed to regulate these powers, ranking hunters from E to S tier. Beneath the surface lies a complex system of mana, gates, and a shadowy realm ruled by the Monarchs.</p>",
+    "storyRoadmap": [
+      { "title": "The Awakening Arc", "summary": "Sung Jin-Woo, the weakest E-rank hunter, gains the mysterious System after a near-death experience in a double dungeon." },
+      { "title": "Shadow Army Arc", "summary": "Jin-Woo builds his army of shadow soldiers, taking on higher-ranked dungeons and growing exponentially in power." },
+      { "title": "The Monarch Conflict Arc", "summary": "The other Shadow Monarchs take notice of Jin-Woo, leading to an all-out war for supremacy." },
+      { "title": "The Final Stand Arc", "summary": "Humanity unites against the invading Monarchs as Jin-Woo embraces his destiny as the true Shadow Monarch." }
+    ]
+  },
+  {
+    "title": "Neon Horizon",
+    "titleJp": "ネオン・ホライズン",
+    "synopsis": "In the neon-lit streets of Neo-Tokyo 2099, a young hacker discovers a conspiracy that threatens to erase the digital consciousness of millions trapped in a virtual world.",
+    "genres": ["ACTION"],
+    "targetDemographics": ["SHONEN"],
+    "coverColor": "#DB2777",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811374/neon_horizon_zyaje6.png",
+    "mangakaEmail": "fujimoto@manga.com",
+    "tantouEditorEmail": "taniguchi@editor.com",
+    "worldLoreContent": "<p>In 2089, the Cortex Network was launched, promising unlimited digital freedom. By 2099, over 60% of humanity spends most of their time in the virtual world. Mega-corporations control both the physical and digital realms, while hackers and rebels fight for digital rights. Neo-Tokyo stands as the shining capital of this new world, its neon-lit streets hiding secrets that could shatter the very fabric of reality.</p>",
+    "storyRoadmap": [
+      { "title": "The Glitch Arc", "summary": "Rookie hacker Kaito discovers a pattern of disappearing users in the Cortex Network." },
+      { "title": "Into the Cortex Arc", "summary": "Kaito dives deeper into the virtual world, uncovering a corporate conspiracy to trap minds permanently." },
+      { "title": "Digital Rebellion Arc", "summary": "Forming a team of hackers and rebels, Kaito fights to free the trapped consciousnesses." },
+      { "title": "New Horizon Arc", "summary": "The final battle to decide the future of humanity's digital existence, both online and offline." }
+    ]
+  },
+  {
+    "title": "Echoes of Eternity",
+    "titleJp": "エコーズ・オブ・エタニティ",
+    "synopsis": "A time-traveling historian jumps between eras to prevent catastrophic events, but each jump fragments her memory and her sense of self.",
+    "genres": ["DRAMA"],
+    "targetDemographics": ["SEINEN"],
+    "coverColor": "#7C3AED",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811379/echoes_of_eternity_ek0h9h.png",
+    "mangakaEmail": "ito@manga.com",
+    "tantouEditorEmail": "sato@editor.com",
+    "worldLoreContent": "<p>The Time-Space Continuum is a delicate web of fixed points and variable events. The Chronos Institute discovered time travel but strictly regulates it. Each jump creates echoes — ripples that can either stabilize or destroy timelines. Historians like Dr. Akari are trained to observe and subtly guide events without creating paradoxes. But some echoes cannot be controlled, and every jump costs a piece of the traveler's memory.</p>",
+    "storyRoadmap": [
+      { "title": "The First Echo Arc", "summary": "Historian Akari makes her first unauthorized time jump to prevent a historical tragedy." },
+      { "title": "Fragmented Memories Arc", "summary": "As Akari continues jumping, she begins losing pieces of her own identity and memories." },
+      { "title": "The Paradox Arc", "summary": "Akari discovers that her actions have created a new timeline that is collapsing in on itself." },
+      { "title": "Eternity's End Arc", "summary": "Facing the ultimate sacrifice, Akari must choose between saving history and saving herself." }
+    ]
+  },
+  {
+    "title": "Blade of the Samurai",
+    "titleJp": "侍の刃",
+    "synopsis": "A wandering ronin searches for a legendary sword to protect the kingdom from an ancient evil that threatens to plunge the land into eternal darkness.",
+    "genres": ["ACTION"],
+    "targetDemographics": ["SHONEN"],
+    "coverColor": "#DC2626",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811374/blade_of_the_samurai_wopdgx.png",
+    "mangakaEmail": "ichikawa@manga.com",
+    "tantouEditorEmail": "sato@editor.com",
+    "worldLoreContent": "<p>The land of Aokigahara was once protected by the sacred blades forged by the legendary swordsmith Masamune. Each blade contained a piece of the celestial light that kept the ancient evil Jashin sealed away. After the fall of the shogunate, the blades were scattered across the land. Now, as Jashin stirs once more, the only hope lies in reuniting the blades and finding the legendary Sword of Dawn.</p>",
+    "storyRoadmap": [
+      { "title": "The Ronin's Journey Arc", "summary": "A disgraced ronin named Kenji sets out to find the first of the legendary blades." },
+      { "title": "The Demon's Awakening Arc", "summary": "Jashin's influence spreads across the land, corrupting lords and samurai alike." },
+      { "title": "The Blades Reunited Arc", "summary": "Kenji collects the celestial blades, facing former allies corrupted by darkness." },
+      { "title": "Dawn's Final Stand Arc", "summary": "The final battle against Jashin to decide the fate of Aokigahara." }
+    ]
+  },
+  {
+    "title": "Cherry Blossoms After Winter",
+    "titleJp": "冬の後の桜",
+    "synopsis": "Two childhood friends separated by fate reunite years later, navigating love, loss, and the fleeting beauty of cherry blossoms.",
+    "genres": ["ROMANCE"],
+    "targetDemographics": ["SHOJO"],
+    "coverColor": "#F43F5E",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811379/cherry_elossoms_after_winter_vdgner.png",
+    "mangakaEmail": "ichikawa@manga.com",
+    "tantouEditorEmail": "taniguchi@editor.com",
+    "worldLoreContent": "<p>Set in the picturesque town of Sakuragaoka, famous for its thousand-year-old cherry blossom trees that line the riverbank. The town holds an annual Cherry Blossom Festival that brings together people from all over Japan. Local legends say that couples who meet under the ancient cherry tree on the hill are destined to be together. The changing seasons mirror the emotional journeys of the town's residents.</p>",
+    "storyRoadmap": [
+      { "title": "Winter's End Arc", "summary": "Hana returns to Sakuragaoka after ten years and unexpectedly reunites with her childhood friend Ryo." },
+      { "title": "Springtime Confusion Arc", "summary": "Old feelings resurface as Hana and Ryo navigate their complicated past and present circumstances." },
+      { "title": "Summer Storms Arc", "summary": "Misunderstandings and outside challenges threaten to tear them apart just as they find each other again." },
+      { "title": "Eternal Blossoms Arc", "summary": "The final choice under the cherry blossoms — to hold on or to let go." }
+    ]
+  },
+  {
+    "title": "Stardust Chronicles",
+    "titleJp": "スターダスト・クロニクル",
+    "synopsis": "An interstellar explorer charts unknown galaxies, uncovering ancient alien civilizations and a cosmic threat that could erase all of existence.",
+    "genres": ["DRAMA"],
+    "targetDemographics": ["SEINEN"],
+    "coverColor": "#0891B2",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811379/stardust_chronicles_pxqoif.png",
+    "mangakaEmail": "ito@manga.com",
+    "tantouEditorEmail": "taniguchi@editor.com",
+    "worldLoreContent": "<p>The United Galactic Federation spans over 500 star systems, connected by a network of warp gates left behind by an ancient precursor race known as the Architects. These gates now serve as the backbone of interstellar travel. But as explorers push further into uncharted space, they discover that not all Architects vanished — some are still watching, waiting for the right moment to reclaim what was theirs.</p>",
+    "storyRoadmap": [
+      { "title": "The Unknown Signal Arc", "summary": "Captain Nova of the exploration vessel Stardust picks up a signal from beyond known space." },
+      { "title": "Echoes of the Architects Arc", "summary": "The crew discovers remnants of the ancient Architect civilization and their terrifying technology." },
+      { "title": "The Cosmic Threat Arc", "summary": "An ancient cosmic entity awakens, threatening to consume entire star systems." },
+      { "title": "New Genesis Arc", "summary": "Nova must make an impossible choice — sacrifice everything to save the galaxy." }
+    ]
+  },
+  {
+    "title": "The Last Summoner",
+    "titleJp": "最後の召喚士",
+    "synopsis": "In a world where summoners have been hunted to near extinction, the last surviving summoner must master forbidden magic to save the kingdom that betrayed her kind.",
+    "genres": ["FANTASY"],
+    "targetDemographics": ["SHONEN"],
+    "coverColor": "#15803D",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811385/the_last_summoner_yws0pc.png",
+    "mangakaEmail": "fujimoto@manga.com",
+    "tantouEditorEmail": "sato@editor.com",
+    "worldLoreContent": "<p>In the kingdom of Eldoria, summoning was once the highest form of magic. Summoners could forge contracts with powerful spirits from other realms. But after a great war where a rogue summoner nearly destroyed the world, summoners were hunted down and executed. The art became forbidden, and all summoning tomes were burned. Now, a century later, a new threat emerges, and only a summoner can save Eldoria.</p>",
+    "storyRoadmap": [
+      { "title": "The Hidden Contract Arc", "summary": "Lilia, a village girl, accidentally awakens her summoning powers and forms a contract with a mysterious spirit." },
+      { "title": "The Hunt Begins Arc", "summary": "The royal Inquisition discovers Lilia and begins hunting her across the kingdom." },
+      { "title": "Forgotten Summoners Arc", "summary": "Lilia discovers a hidden sanctuary of surviving summoners who teach her forbidden magic." },
+      { "title": "The Betrayer's Return Arc", "summary": "The original rogue summoner returns, forcing Lilia to unite the kingdom against a common enemy." }
+    ]
+  },
+  {
+    "title": "Whisper of the Heart",
+    "titleJp": "心のささやき",
+    "synopsis": "A shy bookworm discovers a mysterious antique shop where each item holds the untold love story of its previous owner, leading her on a journey of self-discovery.",
+    "genres": ["ROMANCE"],
+    "targetDemographics": ["SHOJO"],
+    "coverColor": "#E11D48",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811383/whisper_of_the_heart_qgmpua.png",
+    "mangakaEmail": "fujimoto@manga.com",
+    "tantouEditorEmail": "taniguchi@editor.com",
+    "worldLoreContent": "<p>Tucked away in a quiet corner of Kyoto lies the Antique Shop of Forgotten Hearts, run by the enigmatic old woman, Madam Kikyo. The shop is invisible to those who do not need it, but appears to those searching for answers about love and loss. Each item in the shop carries an echo of its previous owner's deepest emotions — a phenomenon known as Heart Resonance.</p>",
+    "storyRoadmap": [
+      { "title": "The Music Box Arc", "summary": "Yuki discovers the antique shop and hears a haunting melody from an old music box." },
+      { "title": "Letters from the Past Arc", "summary": "Each item reveals stories of love and heartbreak, teaching Yuki about the nature of love." },
+      { "title": "The Shopkeeper's Secret Arc", "summary": "Yuki learns that Madam Kikyo is searching for her own lost love across centuries." },
+      { "title": "A Heart's Whisper Arc", "summary": "Yuki must confront her own fears and open her heart to the possibility of love." }
+    ]
+  },
+  {
+    "title": "The Iron Chef",
+    "titleJp": "アイアンシェフ",
+    "synopsis": "A young prodigy enters the world of competitive cooking, facing legendary chefs and uncovering the secret recipes of her late grandmother.",
+    "genres": ["COMEDY"],
+    "targetDemographics": ["SHONEN"],
+    "coverColor": "#EA580C",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811373/the_iron_chef_tw3tbq.png",
+    "mangakaEmail": "ichikawa@manga.com",
+    "tantouEditorEmail": "sato@editor.com",
+    "worldLoreContent": "<p>The world of competitive cooking is governed by the Gourmet Guild, an international organization that hosts tournaments across seven culinary regions. Chefs are ranked from Bronze to Platinum, with the legendary title of Iron Chef reserved for the absolute elite. Behind the glamour lies a hidden world of secret recipes, culinary artifacts, and rivalries spanning generations.</p>",
+    "storyRoadmap": [
+      { "title": "The First Recipe Arc", "summary": "Akane discovers her grandmother's hidden recipe book and enters her first cooking competition." },
+      { "title": "Regional Showdown Arc", "summary": "Akane battles through regional tournaments, facing chefs with unique cooking styles." },
+      { "title": "The Secret Ingredient Arc", "summary": "Akane uncovers the truth behind her grandmother's mysterious disappearance from the culinary world." },
+      { "title": "Iron Chef Tournament Arc", "summary": "The final tournament where Akane must cook against the reigning Iron Chefs." }
+    ]
+  },
+  {
+    "title": "Phantom Thief Reina",
+    "titleJp": "怪盗レイナ",
+    "synopsis": "By day a high school student, by night a phantom thief who steals from the corrupt to expose their secrets, all while evading the detective determined to catch her.",
+    "genres": ["ACTION"],
+    "targetDemographics": ["SHOJO"],
+    "coverColor": "#7E22CE",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811389/phantom_thief_reina_hu0py9.png",
+    "mangakaEmail": "ito@manga.com",
+    "tantouEditorEmail": "taniguchi@editor.com",
+    "worldLoreContent": "<p>In the gleaming metropolis of Shining City, corruption runs deep beneath the surface of prosperity. The elite use their wealth and power to hide crimes ranging from fraud to human trafficking. The police are either complicit or powerless. Enter Reina — a vigilante who operates under the alias Phantom Thief, leaving calling cards before every heist and exposing the truth to the public.</p>",
+    "storyRoadmap": [
+      { "title": "The Calling Card Arc", "summary": "Reina sends her first calling card to a corrupt CEO, beginning her career as Phantom Thief." },
+      { "title": "The Detective's Pursuit Arc", "summary": "Brilliant detective Kudo makes it his mission to catch Reina, getting dangerously close." },
+      { "title": "The Conspiracy Arc", "summary": "Reina uncovers a vast conspiracy connecting all her targets — and her own tragic past." },
+      { "title": "The Final Heist Arc", "summary": "The ultimate confrontation between Reina and the mastermind behind the corruption." }
+    ]
+  },
+  {
+    "title": "Galaxy Rangers",
+    "titleJp": "ギャラクシーレンジャー",
+    "synopsis": "A ragtag crew of interstellar rangers must protect the galaxy from an ancient alien empire, while dealing with their own personal demons and a ship that's falling apart.",
+    "genres": ["ACTION"],
+    "targetDemographics": ["SHONEN"],
+    "coverColor": "#2563EB",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811384/galaxy_rangers_f3l4fb.png",
+    "mangakaEmail": "fujimoto@manga.com",
+    "tantouEditorEmail": "sato@editor.com",
+    "worldLoreContent": "<p>The Galactic Ranger Corps was founded after the Great War with the Xyloid Empire. With limited resources and outdated ships, the Rangers operate on the fringes of civilized space, protecting colonies that the Galactic Federation has forgotten. Their headquarters, the orbital station Haven, is held together by duct tape and sheer determination. But when a new threat emerges, this misfit crew may be humanity's only hope.</p>",
+    "storyRoadmap": [
+      { "title": "The Misfit Crew Arc", "summary": "Captain Orion assembles a team of outcasts and misfits for a desperate mission." },
+      { "title": "Echoes of War Arc", "summary": "The crew discovers that the Xyloid Empire is resurging, stronger than ever." },
+      { "title": "The Alliance Arc", "summary": "The Rangers must forge unlikely alliances with pirates and former enemies to survive." },
+      { "title": "Final Frontier Arc", "summary": "The final battle for the galaxy's future aboard the failing ship Haven." }
+    ]
+  },
+  {
+    "title": "Love in Tokyo",
+    "titleJp": "東京ラブ",
+    "synopsis": "A career-driven woman in her thirties navigates the complexities of modern dating in Tokyo, balancing workplace politics, family pressure, and her own fears of vulnerability.",
+    "genres": ["ROMANCE"],
+    "targetDemographics": ["JOSEI"],
+    "coverColor": "#EC4899",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811381/love_in_tokyo_p0fvxy.png",
+    "mangakaEmail": "ito@manga.com",
+    "tantouEditorEmail": "sato@editor.com",
+    "worldLoreContent": "<p>Tokyo, the world's largest metropolis, is a city of contrasts where ancient temples stand beside neon skyscrapers. For young professionals in their thirties, the pressure to succeed at work while finding love is immense. Dating apps, arranged meetings, and workplace romances all collide in a complex social landscape. The city itself becomes a character — bustling, lonely, and full of hidden connections.</p>",
+    "storyRoadmap": [
+      { "title": "The Setback Arc", "summary": "Miyuki, a successful marketing director, faces another failed relationship and questions her choices." },
+      { "title": "New Encounters Arc", "summary": "Two very different men enter Miyuki's life — her charming junior colleague and a traditional doctor." },
+      { "title": "The Choice Arc", "summary": "Miyuki must choose between her career ambitions and her growing feelings." },
+      { "title": "Tokyo Dreams Arc", "summary": "A life-changing decision that will determine whether she can have it all." }
+    ]
+  },
+  {
+    "title": "Demon Slayer Legacy",
+    "titleJp": "鬼滅の遺産",
+    "synopsis": "Years after the original demon slayer corps disbanded, a new generation of slayers must rise to face a resurrected demon king who threatens to plunge the world into darkness.",
+    "genres": ["ACTION"],
+    "targetDemographics": ["SHONEN"],
+    "coverColor": "#DC2626",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811375/demon_slayer_legacy_em8wun.png",
+    "mangakaEmail": "ichikawa@manga.com",
+    "tantouEditorEmail": "taniguchi@editor.com",
+    "worldLoreContent": "<p>Fifty years after the original Demon Slayer Corps defeated Muzan Kibutsuji, the world believed demons were extinct. The Corps disbanded, and the breathing techniques were passed down as family traditions. But in the shadows, a new demon king has risen, collecting the scattered blood of Muzan to create an army more powerful than before. A new generation must now revive the forgotten techniques and take up the blades.</p>",
+    "storyRoadmap": [
+      { "title": "The Heir Awakens Arc", "summary": "Ren, descendant of a former Hashira, discovers his heritage when a demon attacks his village." },
+      { "title": "Breathing New Life Arc", "summary": "Ren seeks out the last surviving former slayers to learn the lost breathing techniques." },
+      { "title": "The Demon King's Army Arc", "summary": "The new demon king unleashes his Upper Moons, forcing the new Corps into battle." },
+      { "title": "Legacy's End Arc", "summary": "The final showdown between the new generation and the demon king who wants to erase history." }
+    ]
+  },
+  {
+    "title": "The Gourmet Hunter",
+    "titleJp": "グルメハンター",
+    "synopsis": "In a world where the rarest ingredients come from the most dangerous beasts, a hungry hunter travels the world to create the ultimate dish before his rival does.",
+    "genres": ["COMEDY"],
+    "targetDemographics": ["SHONEN"],
+    "coverColor": "#D97706",
+    "coverImageUrl": "https://res.cloudinary.com/dklp7kcl9/image/upload/v1782811382/the_gourmet_hunter_q4knog.png",
+    "mangakaEmail": "fujimoto@manga.com",
+    "tantouEditorEmail": "taniguchi@editor.com",
+    "worldLoreContent": "<p>In a world where culinary exploration is an extreme sport, Gourmet Hunters travel the globe to find legendary ingredients. The Gourmet Guild classifies ingredients from Common to Divine tiers. The most prized ingredients are guarded by powerful beasts, hidden in treacherous environments, or locked in ancient ruins. The ultimate achievement is creating the Legendary Feast — a meal that grants extraordinary abilities.</p>",
+    "storyRoadmap": [
+      { "title": "Empty Stomach Arc", "summary": "Hungry adventurer Goro sets out to become a Gourmet Hunter after tasting a Divine-tier dish." },
+      { "title": "The Hunt Begins Arc", "summary": "Goro tackles his first major hunts, from the Forest of Eternal Flames to the Abyssal Trench." },
+      { "title": "The Rival Chef Arc", "summary": "A childhood rival appears, pushing Goro to new heights in both hunting and cooking." },
+      { "title": "The Legendary Feast Arc", "summary": "Goro enters the Grand Tournament to create the ultimate dish and claim the title of Iron Chef." }
+    ]
+  },
+  {
+    "title": "Fragments of Tomorrow",
+    "titleJp": "明日のかけら",
+    "synopsis": "A woman who can see fragments of the future must decide how much to intervene, knowing that every changed future comes at a devastating cost to someone else.",
+    "genres": ["DRAMA"],
+    "targetDemographics": ["JOSEI"],
+    "coverColor": "#4F46E5",
+    "coverImageUrl": null,
+    "mangakaEmail": "ito@manga.com",
+    "tantouEditorEmail": "sato@editor.com",
+    "worldLoreContent": "<p>In a world where a rare few are born with the ability to see fragments of possible futures — known as Glimpsers. The Global Glimpser Registry monitors and controls these individuals, mandating their service to prevent disasters. But every intervention creates a ripple effect. The ethics of changing fate is a constant debate, and those who try to save everyone often end up losing the most.</p>",
+    "storyRoadmap": [
+      { "title": "The First Glimpse Arc", "summary": "Aoi has her first vision — a devastating earthquake — and must decide whether to warn anyone." },
+      { "title": "The Ripple Effect Arc", "summary": "After preventing one disaster, Aoi witnesses unforeseen consequences that hurt innocent people." },
+      { "title": "The Glimpser Underground Arc", "summary": "Aoi discovers a secret group of Glimpsers who refuse to be controlled by the Registry." },
+      { "title": "Fragments of Fate Arc", "summary": "Facing the greatest disaster yet, Aoi must decide if some futures are better left unseen." }
+    ]
+  },
+  {
+    "title": "My Neighbor the Yokai",
+    "titleJp": "隣の妖怪",
+    "synopsis": "A young girl moves to the countryside and discovers her new neighbors are mischievous yokai who have been living alongside humans for centuries, hiding in plain sight.",
+    "genres": ["COMEDY"],
+    "targetDemographics": ["SHOJO"],
+    "coverColor": "#059669",
+    "coverImageUrl": null,
+    "mangakaEmail": "ichikawa@manga.com",
+    "tantouEditorEmail": "taniguchi@editor.com",
+    "worldLoreContent": "<p>In rural Japan, the boundary between the human world and the spirit world has always been thin. Yokai — supernatural spirits from Japanese folklore — have lived alongside humans for millennia, careful to hide their existence. The village of Tanuki Valley is a special place where this boundary is thinnest, and the local yokai have become part of daily life for those who know how to see them.</p>",
+    "storyRoadmap": [
+      { "title": "The Move Arc", "summary": "City girl Mei moves to Tanuki Valley after her grandmother's passing and discovers she can see yokai." },
+      { "title": "The Yokai Friends Arc", "summary": "Mei befriends a mischievous kitsune and learns about the yokai community." },
+      { "title": "The Spirit Festival Arc", "summary": "The annual festival where both worlds mingle, but a dark spirit threatens the celebration." },
+      { "title": "Bond of Two Worlds Arc", "summary": "Mei must protect her new friends from a threat that could expose the yokai to the human world." }
+    ]
+  },
+  {
+    "title": "Crimson Mercenary",
+    "titleJp": "クリムゾンメルセナリー",
+    "synopsis": "A disgraced knight becomes a mercenary for hire, taking on contracts that force him to confront the corruption within the very kingdom he once swore to protect.",
+    "genres": ["FANTASY"],
+    "targetDemographics": ["SEINEN"],
+    "coverColor": "#B91C1C",
+    "coverImageUrl": null,
+    "mangakaEmail": "fujimoto@manga.com",
+    "tantouEditorEmail": "sato@editor.com",
+    "worldLoreContent": "<p>The Kingdom of Valdoria is a realm of chivalry and honor on the surface, but beneath the gilded throne lies a web of corruption, betrayal, and dark magic. The Royal Knights, once the kingdom's protectors, have become pawns of the nobility. Mercenaries now operate freely, taking contracts that range from monster hunts to political assassinations. It is a land where honor is a luxury only the rich can afford.</p>",
+    "storyRoadmap": [
+      { "title": "The Fallen Knight Arc", "summary": "Sir Kael is framed for treason and stripped of his title, forced to become a mercenary to survive." },
+      { "title": "The Crimson Contract Arc", "summary": "Kael takes on increasingly dangerous contracts while searching for the truth behind his fall." },
+      { "title": "The Conspiracy Unveiled Arc", "summary": "Kael discovers a plot by the nobility to overthrow the king using forbidden dark magic." },
+      { "title": "Redemption Arc", "summary": "Kael must choose between vengeance and redemption in a final battle for the kingdom's soul." }
+    ]
+  },
+  {
+    "title": "Office Wars",
+    "titleJp": "オフィスウォーズ",
+    "synopsis": "Two rival departments in a cutthroat corporation engage in an all-out war for dominance, using office politics, sabotage, and the occasional office supply as a weapon.",
+    "genres": ["DRAMA"],
+    "targetDemographics": ["JOSEI"],
+    "coverColor": "#1D4ED8",
+    "coverImageUrl": null,
+    "mangakaEmail": "ito@manga.com",
+    "tantouEditorEmail": "taniguchi@editor.com",
+    "worldLoreContent": "<p>At Shining Future Corp, the most powerful company in Japan, two departments have been locked in a power struggle for decades. The Marketing Division and the R&D Division compete for budgets, resources, and influence. The office is a battlefield where spreadsheets are weapons, meetings are negotiations, and promotions are won by strategy and ruthlessness. HR has given up trying to mediate long ago.</p>",
+    "storyRoadmap": [
+      { "title": "The Merger Arc", "summary": "A company-wide restructuring forces Marketing and R&D to compete for survival." },
+      { "title": "The Proposal War Arc", "summary": "Both departments vie for the biggest project in company history — the Apex Initiative." },
+      { "title": "The Sabotage Arc", "summary": "Lines are crossed as office politics escalate into outright sabotage and betrayal." },
+      { "title": "The New Order Arc", "summary": "After everything collapses, the survivors must build something new from the ashes." }
+    ]
+  },
+  {
+    "title": "Samurai X",
+    "titleJp": "サムライX",
+    "synopsis": "In an alternate feudal Japan where technology and tradition collide, a lone samurai wields a legendary blade powered by an ancient mechanical heart.",
+    "genres": ["ACTION"],
+    "targetDemographics": ["SEINEN"],
+    "coverColor": "#6D28D9",
+    "coverImageUrl": null,
+    "mangakaEmail": "ichikawa@manga.com",
+    "tantouEditorEmail": "sato@editor.com",
+    "worldLoreContent": "<p>In an alternate 19th century, Japan underwent a different industrial revolution — one based on Steam Chi, a fusion of traditional spiritual energy and mechanical engineering. The Shogunate now commands a fleet of ironclad samurai suits and steam-powered warships. The samurai class has adapted, merging their ancient combat techniques with mechanical enhancements. The legendary Godaiba Blade, powered by a mythical mechanical heart, is the ultimate expression of this fusion.</p>",
+    "storyRoadmap": [
+      { "title": "The Mechanical Heart Arc", "summary": "Ronin Jin finds the legendary Godaiba Blade and discovers it bears a living mechanical heart." },
+      { "title": "The Shogunate's Hunt Arc", "summary": "The Shogunate sends its elite Iron Samurai to retrieve the blade at any cost." },
+      { "title": "The Revolution Arc", "summary": "Jin learns the dark secret behind the Steam Chi technology and must choose a side." },
+      { "title": "Blade of the Future Arc", "summary": "The final battle between tradition and progress, with the fate of Japan hanging in the balance." }
+    ]
+  },
+  {
+    "title": "Sweet Mischief",
+    "titleJp": "スイート・ミスチーフ",
+    "synopsis": "A patissier-in-training accidentally transfers her emotions into the desserts she bakes, causing chaos and unexpected romance with everyone who tastes them.",
+    "genres": ["ROMANCE"],
+    "targetDemographics": ["SHOJO"],
+    "coverColor": "#DB2777",
+    "coverImageUrl": null,
+    "mangakaEmail": "fujimoto@manga.com",
+    "tantouEditorEmail": "taniguchi@editor.com",
+    "worldLoreContent": "<p>In the charming district of Patisserie Lane in Paris, every bakery hides a secret ingredient — the baker's heart. Grandmère's legendary bakery, La Maison Douce, has been famous for generations not just for its pastries but for the magical quality of its desserts. According to family legend, when a baker pours their true feelings into their work, the desserts come alive with emotion. The results are delicious chaos.</p>",
+    "storyRoadmap": [
+      { "title": "The First Batch Arc", "summary": "Apprentice patissier Chloé accidentally imbues her macarons with her feelings, creating edible chaos." },
+      { "title": "Sweet Confusion Arc", "summary": "Chloé's desserts cause romantic misunderstandings between customers, including a handsome food critic." },
+      { "title": "The Grandmère's Secret Arc", "summary": "Chloé learns the truth about her family's magical baking heritage and the price that comes with it." },
+      { "title": "The Perfect Dessert Arc", "summary": "Chloé must create the perfect dessert to save her family's bakery from closure." }
+    ]
+  }
+]

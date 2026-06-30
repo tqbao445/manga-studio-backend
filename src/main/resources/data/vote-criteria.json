@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Content",
+    "description": "Evaluate story, script, and ideas",
+    "weight": 3,
+    "sortOrder": 1
+  },
+  {
+    "name": "Art",
+    "description": "Evaluate drawing quality, panels, layout",
+    "weight": 2,
+    "sortOrder": 2
+  },
+  {
+    "name": "Creativity",
+    "description": "Evaluate creativity and uniqueness",
+    "weight": 1,
+    "sortOrder": 3
+  }
+]

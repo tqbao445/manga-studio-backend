@@ -53,7 +53,9 @@ public class Series {
     /**
      * titleJp: Tên gốc tiếng Nhật (Kanji/Kana).
      * NULLABLE — không bắt buộc.
+     * NVARCHAR → lưu được Unicode (tiếng Nhật, Hàn, Trung...).
      */
+    @Column(columnDefinition = "NVARCHAR(255)")
     private String titleJp;
 
     /**

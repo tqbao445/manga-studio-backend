@@ -172,20 +172,30 @@ public class MeetingService {
      */
     @Transactional(readOnly = true)
     public List<MeetingResponse> getMeetingsForUser(Long userId) {
-        // Tìm tất cả participant records của user này (JOIN FETCH meeting)
-        List<MeetingParticipant> participants = meetingParticipantRepository.findByUserId(userId);
+        var createdMeetings = seriesMeetingRepository.findByCreatedByIdOrderByCreatedAtDesc(userId);
+        var participantMeetings = meetingParticipantRepository.findByUserId(userId).stream()
+                .map(MeetingParticipant::getMeeting)
+                .toList();
 
-        // Build response cho từng meeting, sắp xếp mới nhất trước
-        return participants.stream()
-                .map(mp -> buildMeetingResponse(mp.getMeeting()))
-                .sorted((a, b) -> {
-                    // Nếu có createdAt thì so sánh, không thì mặc định
-                    if (a.getCreatedAt() != null && b.getCreatedAt() != null) {
-                        return b.getCreatedAt().compareTo(a.getCreatedAt());
-                    }
-                    return 0;
-                })
-                .collect(Collectors.toList());
+        var seen = new java.util.HashSet<Long>();
+        var result = new ArrayList<MeetingResponse>();
+        for (var m : createdMeetings) {
+            if (seen.add(m.getId())) {
+                result.add(buildMeetingResponse(m));
+            }
+        }
+        for (var m : participantMeetings) {
+            if (seen.add(m.getId())) {
+                result.add(buildMeetingResponse(m));
+            }
+        }
+        result.sort((a, b) -> {
+            if (a.getCreatedAt() != null && b.getCreatedAt() != null) {
+                return b.getCreatedAt().compareTo(a.getCreatedAt());
+            }
+            return 0;
+        });
+        return result;
     }
 
     // ════════════════════════════════════════════════════════════

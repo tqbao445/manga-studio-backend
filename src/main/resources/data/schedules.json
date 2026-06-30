@@ -1,0 +1,22 @@
+[
+  { "seriesTitle": "Shadow Monarch",              "scheduleType": "WEEKLY",  "dayOfWeek": 3, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Neon Horizon",                "scheduleType": "WEEKLY",  "dayOfWeek": 4, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Echoes of Eternity",           "scheduleType": "WEEKLY",  "dayOfWeek": 5, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Blade of the Samurai",         "scheduleType": "WEEKLY",  "dayOfWeek": 3, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Cherry Blossoms After Winter", "scheduleType": "WEEKLY",  "dayOfWeek": 6, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Stardust Chronicles",          "scheduleType": "WEEKLY",  "dayOfWeek": 2, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "The Last Summoner",            "scheduleType": "MONTHLY", "dayOfWeek": null, "dayOfMonth": 1,  "startDate": "2026-04-01" },
+  { "seriesTitle": "Whisper of the Heart",         "scheduleType": "WEEKLY",  "dayOfWeek": 5, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "The Iron Chef",                "scheduleType": "WEEKLY",  "dayOfWeek": 3, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Phantom Thief Reina",          "scheduleType": "WEEKLY",  "dayOfWeek": 6, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Galaxy Rangers",               "scheduleType": "WEEKLY",  "dayOfWeek": 4, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Love in Tokyo",                "scheduleType": "WEEKLY",  "dayOfWeek": 2, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Demon Slayer Legacy",          "scheduleType": "WEEKLY",  "dayOfWeek": 3, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "The Gourmet Hunter",           "scheduleType": "WEEKLY",  "dayOfWeek": 5, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Fragments of Tomorrow",        "scheduleType": "MONTHLY", "dayOfWeek": null, "dayOfMonth": 7,  "startDate": "2026-04-01" },
+  { "seriesTitle": "My Neighbor the Yokai",        "scheduleType": "WEEKLY",  "dayOfWeek": 6, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Crimson Mercenary",            "scheduleType": "MONTHLY", "dayOfWeek": null, "dayOfMonth": 15, "startDate": "2026-04-01" },
+  { "seriesTitle": "Office Wars",                  "scheduleType": "MONTHLY", "dayOfWeek": null, "dayOfMonth": 21, "startDate": "2026-04-01" },
+  { "seriesTitle": "Samurai X",                    "scheduleType": "WEEKLY",  "dayOfWeek": 4, "dayOfMonth": null, "startDate": "2026-04-01" },
+  { "seriesTitle": "Sweet Mischief",               "scheduleType": "WEEKLY",  "dayOfWeek": 2, "dayOfMonth": null, "startDate": "2026-04-01" }
+]

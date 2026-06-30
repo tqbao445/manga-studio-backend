@@ -1,0 +1,86 @@
+[
+  {
+    "email": "ichikawa@manga.com",
+    "username": "ichikawa",
+    "displayName": "Ichikawa",
+    "role": "MANGAKA",
+    "password": "password"
+  },
+  {
+    "email": "tanaka@manga.com",
+    "username": "tanaka",
+    "displayName": "Tanaka",
+    "role": "ASSISTANT",
+    "password": "password"
+  },
+  {
+    "email": "suzuki@manga.com",
+    "username": "suzuki",
+    "displayName": "Suzuki",
+    "role": "ASSISTANT",
+    "password": "password"
+  },
+  {
+    "email": "yamamoto@manga.com",
+    "username": "yamamoto",
+    "displayName": "Yamamoto",
+    "role": "ASSISTANT",
+    "password": "password"
+  },
+  {
+    "email": "sato@editor.com",
+    "username": "sato_editor",
+    "displayName": "Sato",
+    "role": "TANTOU_EDITOR",
+    "password": "password"
+  },
+  {
+    "email": "taniguchi@editor.com",
+    "username": "taniguchi",
+    "displayName": "Taniguchi",
+    "role": "TANTOU_EDITOR",
+    "password": "password"
+  },
+  {
+    "email": "kimura@board.com",
+    "username": "kimura",
+    "displayName": "Kimura",
+    "role": "EDITORIAL_BOARD",
+    "password": "password"
+  },
+  {
+    "email": "nishida@board.com",
+    "username": "nishida",
+    "displayName": "Nishida",
+    "role": "EDITORIAL_BOARD",
+    "password": "password"
+  },
+  {
+    "email": "watanabe@board.com",
+    "username": "watanabe",
+    "displayName": "Watanabe",
+    "role": "EDITORIAL_BOARD",
+    "password": "password"
+  },
+  {
+    "email": "fujimoto@manga.com",
+    "username": "fujimoto",
+    "displayName": "Fujimoto",
+    "role": "MANGAKA",
+    "password": "password"
+  },
+  {
+    "email": "ito@manga.com",
+    "username": "ito",
+    "displayName": "Ito",
+    "role": "MANGAKA",
+    "password": "password"
+  },
+  {
+    "email": "chief@editor.com",
+    "username": "chief",
+    "displayName": "Takahashi",
+    "role": "CHIEF_EDITOR",
+    "password": "password"
+  }
+]

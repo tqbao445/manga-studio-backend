@@ -1,0 +1,162 @@
+[
+  {
+    "seriesTitle": "Shadow Monarch",
+    "characters": [
+      { "name": "Sung Jin-Woo", "motivation": "Start as the weakest E-rank hunter, rise to become the Shadow Monarch, and protect those he loves." },
+      { "name": "Cha Hae-In", "motivation": "An S-rank hunter who seeks a worthy partner and uncovers the truth behind the gates." },
+      { "name": "Go Gun-Hee", "motivation": "The Chairman of the Hunter Association, determined to maintain balance between humans and monsters." }
+    ]
+  },
+  {
+    "seriesTitle": "Neon Horizon",
+    "characters": [
+      { "name": "Kaito", "motivation": "A rogue hacker fighting to free trapped minds from the Cortex Network." },
+      { "name": "Aria", "motivation": "An AI within the Cortex who gained sentience and seeks genuine connection." },
+      { "name": "Commander Ryker", "motivation": "Head of corporate security, believes total digital control is humanity's only future." }
+    ]
+  },
+  {
+    "seriesTitle": "Echoes of Eternity",
+    "characters": [
+      { "name": "Dr. Akari", "motivation": "A time-traveling historian trying to prevent disasters while preserving her own identity." },
+      { "name": "Professor Kaito", "motivation": "Akari's mentor at the Chronos Institute who knows more about the cost of time travel than he reveals." },
+      { "name": "The Echo", "motivation": "A mysterious entity that exists across all timelines, observing and sometimes intervening." }
+    ]
+  },
+  {
+    "seriesTitle": "Blade of the Samurai",
+    "characters": [
+      { "name": "Kenji", "motivation": "A disgraced ronin seeking redemption by reuniting the celestial blades and defeating Jashin." },
+      { "name": "Princess Yuki", "motivation": "The rightful heir to the throne, fighting to reclaim her kingdom from corrupt lords." },
+      { "name": "Jashin", "motivation": "An ancient evil entity seeking to plunge the world into eternal darkness and chaos." }
+    ]
+  },
+  {
+    "seriesTitle": "Cherry Blossoms After Winter",
+    "characters": [
+      { "name": "Hana", "motivation": "Returning to her hometown, she seeks closure with her past and the courage to love again." },
+      { "name": "Ryo", "motivation": "A childhood friend who never left Sakuragaoka, hiding his lifelong feelings behind a smile." },
+      { "name": "Sakura", "motivation": "Hana's best friend, caught between loyalty to Ryo and her own secret love." }
+    ]
+  },
+  {
+    "seriesTitle": "Stardust Chronicles",
+    "characters": [
+      { "name": "Captain Nova", "motivation": "An explorer driven by curiosity about the Architects and a promise to her lost crew." },
+      { "name": "Lt. Zephyr", "motivation": "Nova's loyal first officer, haunted by a past failure that cost lives." },
+      { "name": "The Architect", "motivation": "The last surviving member of an ancient precursor race, awakening to reclaim the galaxy." }
+    ]
+  },
+  {
+    "seriesTitle": "The Last Summoner",
+    "characters": [
+      { "name": "Lilia", "motivation": "A village girl who awakens forbidden summoning powers and must save the kingdom that hunts her kind." },
+      { "name": "Spirit Kael", "motivation": "An ancient spirit bound to Lilia by contract, seeking freedom from a centuries-old curse." },
+      { "name": "Inquisitor Voss", "motivation": "The leader of the royal Inquisition, hunting summoners to hide a dark secret." }
+    ]
+  },
+  {
+    "seriesTitle": "Whisper of the Heart",
+    "characters": [
+      { "name": "Yuki", "motivation": "A shy bookworm searching for her own story while uncovering the tales hidden in antique treasures." },
+      { "name": "Madam Kikyo", "motivation": "The owner of the antique shop, seeking her lost love across centuries through the items she collects." },
+      { "name": "Ren", "motivation": "A talented calligrapher who visits the shop daily, hiding a connection to one of the antiques." }
+    ]
+  },
+  {
+    "seriesTitle": "The Iron Chef",
+    "characters": [
+      { "name": "Akane", "motivation": "A young prodigy determined to uncover her grandmother's lost recipes and become Iron Chef." },
+      { "name": "Chef Kuro", "motivation": "The reigning Iron Chef, stoic and mysterious, with a hidden link to Akane's grandmother." },
+      { "name": "Momo", "motivation": "Akane's energetic sous-chef and best friend, dreaming of opening her own bakery." }
+    ]
+  },
+  {
+    "seriesTitle": "Phantom Thief Reina",
+    "characters": [
+      { "name": "Reina", "motivation": "By day a high school student, by night a phantom thief exposing corruption while hiding her identity." },
+      { "name": "Detective Kudo", "motivation": "A brilliant but stubborn detective obsessed with catching the Phantom Thief." },
+      { "name": "Mr. Kuroda", "motivation": "A wealthy businessman whose empire hides a dark conspiracy tied to Reina's past." }
+    ]
+  },
+  {
+    "seriesTitle": "Galaxy Rangers",
+    "characters": [
+      { "name": "Captain Orion", "motivation": "A disgraced former fleet commander given one last chance to lead a misfit crew." },
+      { "name": "Lyra", "motivation": "A brilliant engineer keeping the ship running, fleeing from her past as a weapons designer." },
+      { "name": "Commander Xylos", "motivation": "The ruthless leader of the Xyloid Empire, driven by prophecy to conquer all worlds." }
+    ]
+  },
+  {
+    "seriesTitle": "Love in Tokyo",
+    "characters": [
+      { "name": "Miyuki", "motivation": "A successful marketing director in her thirties, torn between career ambition and the desire for love." },
+      { "name": "Takashi", "motivation": "A charming junior colleague who challenges Miyuki's professional walls with genuine warmth." },
+      { "name": "Dr. Sato", "motivation": "A traditional doctor set up by family, representing the safe but predictable path." }
+    ]
+  },
+  {
+    "seriesTitle": "Demon Slayer Legacy",
+    "characters": [
+      { "name": "Ren", "motivation": "A descendant of a former Hashira, awakening his heritage to defeat the new demon king." },
+      { "name": "Yuki", "motivation": "The last surviving former slayer, training the new generation in forgotten breathing techniques." },
+      { "name": "Demon King Mael", "motivation": "A demon who collected Muzan's scattered blood, seeking to perfect immortality." }
+    ]
+  },
+  {
+    "seriesTitle": "The Gourmet Hunter",
+    "characters": [
+      { "name": "Goro", "motivation": "A hungry adventurer traveling the world to find legendary ingredients and create the ultimate dish." },
+      { "name": "Sora", "motivation": "Goro's rival and childhood friend, pushing him to greater heights through competition." },
+      { "name": "Master Jiro", "motivation": "A legendary retired Gourmet Hunter who holds the secret to the Legendary Feast." }
+    ]
+  },
+  {
+    "seriesTitle": "Fragments of Tomorrow",
+    "characters": [
+      { "name": "Aoi", "motivation": "A Glimpser who sees fragments of the future, struggling with the ethics of changing fate." },
+      { "name": "Agent Takeda", "motivation": "A government agent who oversees Glimpsers, hiding the dark truth about the Registry." },
+      { "name": "Kai", "motivation": "A rogue Glimpser leading an underground network, believing intervention at any cost is justified." }
+    ]
+  },
+  {
+    "seriesTitle": "My Neighbor the Yokai",
+    "characters": [
+      { "name": "Mei", "motivation": "A city girl who moves to the countryside and discovers she can see yokai hidden in plain sight." },
+      { "name": "Kitsune", "motivation": "A mischievous fox yokai who becomes Mei's guide to the spirit world." },
+      { "name": "Grandmother Hana", "motivation": "Mei's late grandmother who was the former guardian of the boundary between worlds." }
+    ]
+  },
+  {
+    "seriesTitle": "Crimson Mercenary",
+    "characters": [
+      { "name": "Sir Kael", "motivation": "A disgraced knight turned mercenary, seeking truth and redemption in a corrupt kingdom." },
+      { "name": "Lysandra", "motivation": "A mysterious noblewoman who hires Kael, hiding her role in the kingdom's conspiracy." },
+      { "name": "Chancellor Mordred", "motivation": "The power behind the throne, using dark magic to control the kingdom for his own ends." }
+    ]
+  },
+  {
+    "seriesTitle": "Office Wars",
+    "characters": [
+      { "name": "Miki", "motivation": "A rising star in Marketing, caught between ambition and her principles in the corporate war." },
+      { "name": "Taro", "motivation": "The head of R&D, a genius engineer who just wants to innovate without politics." },
+      { "name": "President Sato", "motivation": "The enigmatic CEO who orchestrates the rivalry between departments for his own amusement." }
+    ]
+  },
+  {
+    "seriesTitle": "Samurai X",
+    "characters": [
+      { "name": "Jin", "motivation": "A wandering ronin who discovers the legendary Godaiba Blade and its living mechanical heart." },
+      { "name": "Princess Azami", "motivation": "A progressive noble who believes Japan's future lies in balancing tradition with technology." },
+      { "name": "Shogun's Enforcer", "motivation": "The leader of the Iron Samurai, loyal to the Shogunate but questioning the cost of progress." }
+    ]
+  },
+  {
+    "seriesTitle": "Sweet Mischief",
+    "characters": [
+      { "name": "Chloe", "motivation": "A young patissier-in-training whose emotions magically infuse her desserts with chaotic results." },
+      { "name": "Lucien", "motivation": "A renowned food critic who becomes entangled in Chloe's magical baking and her heart." },
+      { "name": "Grandmere", "motivation": "Chloe's grandmother and owner of La Maison Douce, keeper of the family's magical baking secrets." }
+    ]
+  }
+]
