@@ -169,7 +169,6 @@ public class SeriesRankingService {
      */
     @Transactional
     public ImportResultResponse importWeekly(MultipartFile file, String weekLabel) {
-        validateWeekIsPast(weekLabel);
         return processImport(file, weekLabel, "WEEKLY");
     }
 
@@ -664,20 +663,6 @@ public class SeriesRankingService {
     // ========================================================================
     // ✅ VALIDATION
     // ========================================================================
-
-    /**
-     * Validate week đã kết thúc (Chủ Nhật của week đó < hôm nay).
-     */
-    private void validateWeekIsPast(String weekLabel) {
-        LocalDate[] range = parseWeekRange(weekLabel);
-        LocalDate weekEnd = range[1]; // Chủ Nhật
-        if (!weekEnd.isBefore(LocalDate.now())) {
-            throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Cannot import data for current or future week. "
-                            + "Week " + weekLabel + " ends on " + weekEnd
-                            + ". Please wait until the week ends.");
-        }
-    }
 
     /**
      * Validate month đã kết thúc.

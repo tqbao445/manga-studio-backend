@@ -723,7 +723,15 @@ public class TaskService {
         // Task TODO thường chưa có submission, nhưng cleanup an toàn
         deleteTaskCloudinaryFiles(task);
 
-        // ── Bước 4: Xoá record trong database ──
+        // ── Bước 4: Giải phóng regions trước khi xoá task ──
+        // Set task_id = NULL để tránh vi phạm FK constraint
+        List<Region> regions = regionRepository.findByTaskId(id);
+        for (Region region : regions) {
+            region.setTask(null);
+        }
+        regionRepository.saveAll(regions);
+
+        // ── Bước 5: Xoá record trong database ──
         // Cascade sẽ tự động xoá submissions và attachments
         taskRepository.delete(task);
     }
